@@ -45,6 +45,15 @@ public class Employee extends BaseEntity {
     @Column(name = "hire_date", nullable = false)
     private LocalDate hireDate;
 
+    // --- İLETİŞİM BİLGİLERİ (Task 6 - Profil Güncelleme İçin Eklendi) ---
+    // Sınıfın içine, diğer değişkenlerin yanına ekliyoruz:
+
+    @Column(name = "phone_number", length = 20)
+    private String phoneNumber;
+
+    @Column(name = "address", length = 250)
+    private String address;
+
     // --- ÇALIŞMA BİLGİLERİ ---
 
     @Column(name = "daily_work_hours", nullable = false, precision = 4, scale = 1)
@@ -57,17 +66,13 @@ public class Employee extends BaseEntity {
 
     // --- İLİŞKİLER ---
 
-    // 1. FetchType.LAZY Eklendi:
-    // Personeli her sorguladığında veritabanına gidip "Departmanını da getir" demesin.
-    // Sadece sen employee.getDepartment() dediğinde getirsin. (Performans için şart)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "department_id", nullable = false)
     @ToString.Exclude
     private Department department;
 
-    // 2. User İlişkisi
-    // mappedBy = "employee": İlişkinin sahibi User tablosudur demek.
     @OneToOne(mappedBy = "employee", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @ToString.Exclude
     private User user;
+
 }
