@@ -1,10 +1,12 @@
 package com.cozumtr.leave_management_system.service;
 
 import com.cozumtr.leave_management_system.dto.request.UpdateProfileRequest;
+import com.cozumtr.leave_management_system.dto.response.UserResponse;
 import com.cozumtr.leave_management_system.entities.Employee;
 import com.cozumtr.leave_management_system.repository.EmployeeRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,15 +30,20 @@ public class EmployeeService {
         return employeeRepository.findByDepartmentId(departmentId);
     }
 
-    // --- YENİ EKLENEN METOT (TASK 6 İÇİN) ---
 
-    @Transactional // Veritabanı işlemini güvenli yapar
-    public void updateProfile(Long employeeId, UpdateProfileRequest request) {
-        // 1. Çalışanı bul
-        Employee employee = employeeRepository.findById(employeeId)
-                .orElseThrow(() -> new EntityNotFoundException("Çalışan bulunamadı ID: " + employeeId));
 
-        // 2. Sadece telefon ve adresi güncelle (Diğerlerine dokunma)
+    @Transactional
+    public UserResponse updateProfile(UpdateProfileRequest request) {
+        // 1. GÜVENLİK: Şu an sisteme giriş yapmış kişinin emailini alıyoruz
+        // (Böylece kimse başkasının ID'sini URL'den gönderip profilini değiştiremez)
+        // NOT: Eğer "Authentication is null" hatası alırsan, test için JWT token ile istek atman gerekir.
+        String loggedInEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        // 2. Veritabanından bu emaile sahip çalışanı buluyoruz
+        Employee employee = employeeRepository.findByEmail(loggedInEmail)
+                .orElseThrow(() -> new EntityNotFoundException("Kullanıcı bulunamadı: " + loggedInEmail));
+
+        // 3. Güncelleme işlemleri (Sadece dolu gelen alanları)
         if (request.getPhoneNumber() != null) {
             employee.setPhoneNumber(request.getPhoneNumber());
         }
@@ -45,7 +52,10 @@ public class EmployeeService {
             employee.setAddress(request.getAddress());
         }
 
-        // 3. Kaydet
-        employeeRepository.save(employee);
+        // 4. Kaydet
+        Employee savedEmployee = employeeRepository.save(employee);
+
+        // 5. Frontend'e güncel veriyi dön (UserResponse DTO)
+        return new UserResponse(savedEmployee);
     }
 }
