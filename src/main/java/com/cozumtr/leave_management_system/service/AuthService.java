@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -43,51 +44,94 @@ public class AuthService {
     /**
      * 1. KULLANICI GİRİŞİ (login)
      * Spring Security doğrulamasını yapar, başarılı olursa JWT Token üretir
+     * Brute Force Protection: 5 başarısız denemeden sonra hesap kilitlenir
      */
     public AuthResponseDto login(LoginRequestDto request) {
-        // Spring Security ile kimlik doğrulama
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.getEmail(),
-                        request.getPassword()
-                )
-        );
-
-        // Kullanıcıyı bul
+        // Önce kullanıcıyı bul (kilit kontrolü için)
         User user = userRepository.findByEmployeeEmail(request.getEmail())
-                .orElseThrow(() -> new UsernameNotFoundException("Kullanıcı bulunamadı: " + request.getEmail()));
+                .orElse(null);
 
-        // Kullanıcı aktif değilse hata ver
-        if (!user.getIsActive()) {
-            throw new RuntimeException("Hesabınız aktif değil. Lütfen önce hesabınızı aktifleştirin.");
+        // 1. KİLİT KONTROLÜ: Kullanıcı varsa ve hesap kilitliyse direkt hata fırlat
+        if (user != null && user.getFailedLoginAttempts() >= 5) {
+            throw new RuntimeException("Hesabınız güvenlik nedeniyle kilitlenmiştir. Lütfen 'Şifremi Unuttum' ile şifrenizi sıfırlayın.");
         }
 
-        // Şifre kontrolü (Spring Security zaten yaptı ama ekstra kontrol)
-        if (user.getPasswordHash() == null) {
-            throw new RuntimeException("Şifreniz henüz belirlenmemiş. Lütfen hesabınızı aktifleştirin.");
+        try {
+            // Spring Security ile kimlik doğrulama
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            request.getEmail(),
+                            request.getPassword()
+                    )
+            );
+
+            // Kullanıcıyı tekrar bul (authentication başarılı oldu)
+            user = userRepository.findByEmployeeEmail(request.getEmail())
+                    .orElseThrow(() -> new UsernameNotFoundException("Kullanıcı bulunamadı: " + request.getEmail()));
+
+            // Kullanıcı aktif değilse hata ver
+            if (!user.getIsActive()) {
+                throw new RuntimeException("Hesabınız aktif değil. Lütfen önce hesabınızı aktifleştirin.");
+            }
+
+            // Şifre kontrolü (Spring Security zaten yaptı ama ekstra kontrol)
+            if (user.getPasswordHash() == null) {
+                throw new RuntimeException("Şifreniz henüz belirlenmemiş. Lütfen hesabınızı aktifleştirin.");
+            }
+
+            // 3. ŞİFRE KONTROLÜ BAŞARILI İSE: Eğer failedLoginAttempts > 0 ise sıfırla
+            if (user.getFailedLoginAttempts() > 0) {
+                user.setFailedLoginAttempts(0);
+                userRepository.save(user);
+            }
+
+            // Rolleri al
+            Set<String> roles = user.getRoles().stream()
+                    .map(Role::getRoleName)
+                    .collect(Collectors.toSet());
+
+            // JWT Token üret
+            String token = jwtService.generateToken(user.getEmployee().getEmail(), user.getId(), roles);
+
+            // Son giriş zamanını güncelle
+            user.setLastLogin(java.time.LocalDateTime.now());
+            userRepository.save(user);
+
+            // AuthResponseDto oluştur ve döndür
+            return AuthResponseDto.builder()
+                    .token(token)
+                    .tokenType("Bearer")
+                    .userId(user.getId())
+                    .userEmail(user.getEmployee().getEmail())
+                    .roles(roles)
+                    .build();
+
+        } catch (org.springframework.security.authentication.BadCredentialsException e) {
+            // 2. ŞİFRE KONTROLÜ BAŞARISIZ İSE: Deneme sayacını artır
+            if (user != null) {
+                int failedAttempts = user.getFailedLoginAttempts() + 1;
+                user.setFailedLoginAttempts(failedAttempts);
+                user.setLastLogin(java.time.LocalDateTime.now());
+                userRepository.save(user);
+
+                // Kalan hakkı hesapla (kullanıcıya GÖSTERME)
+                int remainingAttempts = 5 - failedAttempts;
+
+                if (remainingAttempts <= 0) {
+                    // 5. hatayı yaptı, hesap kilitlendi
+                    log.warn("Hesap kilitlendi: {} (5 başarısız deneme)", request.getEmail());
+                    throw new RuntimeException("Hesabınız kilitlendi. Lütfen şifrenizi sıfırlayın.");
+                } else {
+                    // Genel hata mesajı (kalan hak bilgisi gösterilmez)
+                    log.warn("Başarısız giriş denemesi: {} (Deneme: {}/5, Kalan: {})", 
+                            request.getEmail(), failedAttempts, remainingAttempts);
+                    throw new RuntimeException("Giriş bilgileri hatalı. Lütfen tekrar deneyin.");
+                }
+            } else {
+                // Kullanıcı bulunamadı - genel hata mesajı
+                throw new RuntimeException("Giriş bilgileri hatalı. Lütfen tekrar deneyin.");
+            }
         }
-
-        // Rolleri al
-        Set<String> roles = user.getRoles().stream()
-                .map(Role::getRoleName)
-                .collect(Collectors.toSet());
-
-        // JWT Token üret
-        String token = jwtService.generateToken(user.getEmployee().getEmail(), user.getId(), roles);
-
-        // Son giriş zamanını güncelle
-        user.setLastLogin(java.time.LocalDateTime.now());
-        user.setFailedLoginAttempts(0);
-        userRepository.save(user);
-
-        // AuthResponseDto oluştur ve döndür
-        return AuthResponseDto.builder()
-                .token(token)
-                .tokenType("Bearer")
-                .userId(user.getId())
-                .userEmail(user.getEmployee().getEmail())
-                .roles(roles)
-                .build();
     }
 
     /**
@@ -289,6 +333,117 @@ public class AuthService {
                 .userEmail(employee.getEmail())
                 .roles(roles)
                 .build();
+    }
+
+    /**
+     * 5. ŞİFREMİ UNUTTUM - TALEP ETME (forgotPassword)
+     * Kullanıcı email adresini girer, sistem token oluşturur ve email gönderir
+     * Güvenlik: Kullanıcı yoksa bile "Email gönderildi" mesajı döner
+     */
+    @Transactional
+    public void forgotPassword(String email) {
+        // Kullanıcıyı bul
+        Optional<User> userOptional = userRepository.findByEmployeeEmail(email);
+
+        // Güvenlik: Kullanıcı yoksa bile işlemi devam ettir (kötü niyetli kişiler kimin üye olduğunu anlayamaz)
+        if (userOptional.isEmpty()) {
+            log.warn("Şifre sıfırlama talebi - Kullanıcı bulunamadı: {}", email);
+            // Kullanıcıya bilgi vermeden çık (güvenlik için)
+            return;
+        }
+
+        User user = userOptional.get();
+
+        // Kullanıcı aktif değilse işlem yapma
+        if (!user.getIsActive()) {
+            log.warn("Şifre sıfırlama talebi - Kullanıcı aktif değil: {}", email);
+            return;
+        }
+
+        // Rastgele, benzersiz bir token üret
+        String resetToken = UUID.randomUUID().toString();
+
+        // Token'ı ve bitiş süresini (15 dakika) veritabanına kaydet
+        user.setPasswordResetToken(resetToken);
+        user.setPasswordResetExpires(java.time.LocalDateTime.now().plusMinutes(15));
+        userRepository.save(user);
+
+        // Email gönder
+        emailService.sendPasswordResetEmail(email, resetToken);
+
+        log.info("Şifre sıfırlama token'ı oluşturuldu ve email gönderildi: {}", email);
+    }
+
+    /**
+     * 6. ŞİFREMİ UNUTTUM - TOKEN DOĞRULAMA (validateResetToken)
+     * Frontend, sayfa yüklenirken token'ın geçerli olup olmadığını kontrol eder
+     */
+    public boolean validateResetToken(String token) {
+        // Token'a göre kullanıcıyı bul (süresi dolmamış olmalı)
+        Optional<User> userOptional = userRepository.findByPasswordResetTokenAndPasswordResetExpiresAfter(
+                token,
+                java.time.LocalDateTime.now()
+        );
+
+        if (userOptional.isEmpty()) {
+            log.warn("Geçersiz veya süresi dolmuş şifre sıfırlama token'ı: {}", token);
+            return false;
+        }
+
+        User user = userOptional.get();
+
+        // Kullanıcı aktif değilse token geçersiz
+        if (!user.getIsActive()) {
+            log.warn("Token geçerli ama kullanıcı aktif değil: {}", user.getEmployee().getEmail());
+            return false;
+        }
+
+        log.info("Şifre sıfırlama token'ı geçerli: {}", token);
+        return true;
+    }
+
+    /**
+     * 7. ŞİFREMİ UNUTTUM - ŞİFREYİ SIFIRLAMA (resetPassword)
+     * Kullanıcı yeni şifresini girer, sistem token'ı kontrol eder ve şifreyi günceller
+     */
+    @Transactional
+    public void resetPassword(String token, String newPassword, String passwordConfirm) {
+        // Şifre tekrarı kontrolü
+        if (!newPassword.equals(passwordConfirm)) {
+            throw new RuntimeException("Şifre ve şifre tekrarı eşleşmiyor");
+        }
+
+        // Şifre karmaşıklığı kontrolü
+        if (newPassword.length() < 8 || newPassword.length() > 30) {
+            throw new RuntimeException("Şifre en az 8, en fazla 30 karakter olmalıdır");
+        }
+
+        // Token'a göre kullanıcıyı bul (süresi dolmamış olmalı)
+        User user = userRepository.findByPasswordResetTokenAndPasswordResetExpiresAfter(
+                        token,
+                        java.time.LocalDateTime.now()
+                )
+                .orElseThrow(() -> new RuntimeException("Geçersiz veya süresi dolmuş şifre sıfırlama token'ı"));
+
+        // Kullanıcı aktif değilse hata ver
+        if (!user.getIsActive()) {
+            throw new RuntimeException("Hesabınız aktif değil");
+        }
+
+        // Yeni şifreyi hash'le ve kaydet
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+
+        // Kritik: Kullanılan token'ı ve süresini veritabanından sil (Token'ı NULL yap)
+        // Böylece o link bir daha kullanılamaz
+        user.setPasswordResetToken(null);
+        user.setPasswordResetExpires(null);
+
+        // Başarısız giriş denemelerini sıfırla
+        user.setFailedLoginAttempts(0);
+
+        userRepository.save(user);
+
+        log.info("Şifre başarıyla sıfırlandı: {}", user.getEmployee().getEmail());
     }
 }
 

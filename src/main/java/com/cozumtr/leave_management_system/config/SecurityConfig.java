@@ -38,8 +38,12 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
-                                "/api/auth/login",      // Giriş herkese açık
-                                "/api/auth/activate",     // Aktivasyon herkese açık
+                                "/api/auth/login",              // Giriş herkese açık
+                                "/api/auth/activate",           // Aktivasyon herkese açık
+                                "/api/auth/refresh",            // Token yenileme herkese açık
+                                "/api/auth/forgot-password",    // Şifremi unuttum - talep etme
+                                "/api/auth/validate-reset-token", // Token doğrulama
+                                "/api/auth/reset-password",     // Şifre sıfırlama
                                 "/api/seed/**" 
                         ).permitAll()
 
