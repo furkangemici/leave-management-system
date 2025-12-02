@@ -11,6 +11,9 @@ import java.util.List;
 
 public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long> {
 
+    // "Bana şu departmandaki (departmentId) ve şu durumdaki (PENDING) talepleri getir"
+    List<LeaveRequest> findByEmployeeDepartmentIdAndRequestStatus(Long departmentId, RequestStatus requestStatus);
+
     // Bir personelin tüm izinleri
     List<LeaveRequest> findByEmployeeId(Long employeeId);
 
