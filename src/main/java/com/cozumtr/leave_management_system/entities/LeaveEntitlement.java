@@ -12,7 +12,7 @@ import java.math.BigDecimal;
 @Getter
 @Setter
 @ToString
-@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@EqualsAndHashCode(onlyExplicitlyIncluded = true, callSuper = false)
 @Check(constraints = "total_hours_entitled >= 0 AND hours_used >= 0")
 public class LeaveEntitlement extends BaseEntity {
     @Id
