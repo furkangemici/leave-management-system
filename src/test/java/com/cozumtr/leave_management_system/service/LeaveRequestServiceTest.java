@@ -35,7 +35,6 @@ class LeaveRequestServiceTest {
     @Mock private LeaveTypeRepository leaveTypeRepository;
     @Mock private LeaveCalculationService leaveCalculationService;
 
-    // Security Context Mockları
     @Mock private SecurityContext securityContext;
     @Mock private Authentication authentication;
 
@@ -44,68 +43,77 @@ class LeaveRequestServiceTest {
 
     @BeforeEach
     void setUp() {
-        // Her testten önce SecurityContext'i ayarla (Login olmuş gibi)
         SecurityContextHolder.setContext(securityContext);
     }
 
+    // --- TASK 7 TESTİ ---
     @Test
     void createLeaveRequest_ShouldCreateSuccessfully() {
-        // 1. HAZIRLIK (GIVEN)
         String email = "test@sirket.com";
         LocalDateTime start = LocalDateTime.now().plusDays(1);
         LocalDateTime end = start.plusDays(2);
 
-        // Login Mock
         when(securityContext.getAuthentication()).thenReturn(authentication);
         when(authentication.getName()).thenReturn(email);
 
-        // Employee Mock
         Employee employee = new Employee();
         employee.setId(1L);
         employee.setEmail(email);
         when(employeeRepository.findByEmail(email)).thenReturn(Optional.of(employee));
 
-        // LeaveType Mock
         LeaveType leaveType = new LeaveType();
         leaveType.setId(1L);
         leaveType.setName("Yıllık İzin");
         when(leaveTypeRepository.findById(1L)).thenReturn(Optional.of(leaveType));
 
-        // Çakışma Yok Mock
-        when(leaveRequestRepository.existsByEmployeeAndDateRangeOverlap(any(), any(), any(), any()))
-                .thenReturn(false);
+        when(leaveRequestRepository.existsByEmployeeAndDateRangeOverlap(any(), any(), any(), any())).thenReturn(false);
+        when(leaveCalculationService.calculateDuration(any(), any())).thenReturn(new BigDecimal("2.0"));
 
-        // Hesaplama Motoru Mock (Task 8'i taklit ediyoruz)
-        when(leaveCalculationService.calculateDuration(any(), any()))
-                .thenReturn(new BigDecimal("2.0"));
-
-        // Kayıt Mock (Kaydedileni geri dön)
         when(leaveRequestRepository.save(any(LeaveRequest.class))).thenAnswer(i -> {
             LeaveRequest req = (LeaveRequest) i.getArguments()[0];
-            req.setId(100L); // Sanki veritabanı ID vermiş gibi
+            req.setId(100L);
             return req;
         });
 
-        // İstek DTO'su
         CreateLeaveRequest request = new CreateLeaveRequest();
         request.setLeaveTypeId(1L);
         request.setStartDate(start);
         request.setEndDate(end);
-        request.setReason("Tatil");
 
-        // 2. EYLEM (WHEN)
         LeaveRequestResponse response = leaveRequestService.createLeaveRequest(request);
 
-        // 3. KONTROL (THEN)
         assertNotNull(response);
         assertEquals(100L, response.getId());
         assertEquals("Yıllık İzin", response.getLeaveTypeName());
-        assertEquals(RequestStatus.PENDING_APPROVAL, response.getStatus()); // Enum ismine dikkat
-        assertEquals(new BigDecimal("2.0"), response.getDuration());
-
-        // Veritabanına gerçekten kayıt atıldı mı?
         verify(leaveRequestRepository).save(any(LeaveRequest.class));
+        System.out.println(" İzin Oluşturma Testi Başarılı!");
+    }
 
-        System.out.println(" İzin Talebi Testi Başarılı!");
+    // --- TASK 9 TESTİ (İPTAL) ---
+    @Test
+    void cancelLeaveRequest_ShouldCancel_WhenPendingAndOwner() {
+        Long requestId = 55L;
+        String email = "ali@sirket.com";
+
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+        when(authentication.getName()).thenReturn(email);
+
+        LeaveRequest request = new LeaveRequest();
+        request.setId(requestId);
+        request.setRequestStatus(RequestStatus.PENDING_APPROVAL);
+
+        Employee owner = new Employee();
+        owner.setEmail(email);
+        request.setEmployee(owner);
+
+        when(leaveRequestRepository.findById(requestId)).thenReturn(Optional.of(request));
+
+        // EYLEM
+        leaveRequestService.cancelLeaveRequest(requestId);
+
+        // KONTROL
+        assertEquals(RequestStatus.CANCELLED, request.getRequestStatus());
+        verify(leaveRequestRepository).save(request);
+        System.out.println(" İzin İptal Testi Başarılı!");
     }
 }

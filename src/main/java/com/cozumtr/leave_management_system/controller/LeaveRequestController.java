@@ -16,18 +16,28 @@ public class LeaveRequestController {
 
     private final LeaveRequestService leaveRequestService;
 
-    // Task 7: İzin Talebi Oluşturma Ucu (Gerçek Logic)
+    // --- TASK 7: İZİN TALEBİ OLUŞTURMA ---
+    // URL: POST http://localhost:8080/api/leaves
     @PostMapping
     public ResponseEntity<LeaveRequestResponse> createLeaveRequest(@Valid @RequestBody CreateLeaveRequest request) {
-        
-        // Servise gönderip işlemi yaptırıyoruz
+
         LeaveRequestResponse response = leaveRequestService.createLeaveRequest(request);
-        
-        // 201 Created (Oluşturuldu) statüsü ile cevabı dönüyoruz
+
+        // 201 Created (Oluşturuldu) kodu ile dönüyoruz
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-     //Task 4'te doldurulur
+    // --- TASK 9: İZİN İPTAL ETME ---
+    // URL: PUT http://localhost:8080/api/leaves/{id}/cancel
+    @PutMapping("/{id}/cancel")
+    public ResponseEntity<String> cancelLeaveRequest(@PathVariable Long id) {
+
+        leaveRequestService.cancelLeaveRequest(id);
+
+        return ResponseEntity.ok("İzin talebi başarıyla iptal edildi.");
+    }
+
+    // (Opsiyonel Placeholder - Task 4 için yer tutucu)
     @GetMapping("/my-leaves")
     public String getMyLeaves() {
         return "Geçmiş izinlerim listesi (Henüz implemente edilmedi)...";

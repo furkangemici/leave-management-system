@@ -28,20 +28,20 @@ public class LeaveRequestService {
     private final LeaveTypeRepository leaveTypeRepository;
     private final LeaveCalculationService leaveCalculationService;
 
+    // --- TASK 7: İZİN TALEBİ OLUŞTURMA ---
     @Transactional
     public LeaveRequestResponse createLeaveRequest(CreateLeaveRequest request) {
-        
-        // 1. GÜVENLİK: Giriş yapan kullanıcıyı Token'dan bul
+        // 1. Güvenlik: Giriş yapanı bul
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         Employee employee = employeeRepository.findByEmail(email)
                 .orElseThrow(() -> new EntityNotFoundException("Kullanıcı bulunamadı: " + email));
 
-        // 2. VALIDASYON: Tarih Kontrolü
+        // 2. Tarih Kontrolü
         if (request.getEndDate().isBefore(request.getStartDate())) {
             throw new IllegalArgumentException("Bitiş tarihi başlangıç tarihinden önce olamaz!");
         }
 
-        // 3. ÇAKIŞMA KONTROLÜ
+        // 3. Çakışma Kontrolü
         boolean hasOverlap = leaveRequestRepository.existsByEmployeeAndDateRangeOverlap(
                 employee.getId(),
                 request.getStartDate(),
@@ -53,11 +53,10 @@ public class LeaveRequestService {
             throw new IllegalStateException("Seçilen tarih aralığında zaten mevcut bir izin kaydınız var!");
         }
 
-        // 4. İzin Türünü Bul
+        // 4. İzin Türü ve Süre Hesaplama
         LeaveType leaveType = leaveTypeRepository.findById(request.getLeaveTypeId())
                 .orElseThrow(() -> new EntityNotFoundException("Geçersiz İzin Türü ID: " + request.getLeaveTypeId()));
 
-        // 5. HESAPLAMA: Task 8'deki Motoru Çağır
         BigDecimal duration = leaveCalculationService.calculateDuration(
                 request.getStartDate().toLocalDate(),
                 request.getEndDate().toLocalDate()
@@ -67,28 +66,19 @@ public class LeaveRequestService {
             throw new IllegalArgumentException("Hesaplanabilir iş günü bulunamadı (Tatil veya Haftasonu).");
         }
 
-        // 6. Entity Oluştur ve Kaydet
+        // 5. Kayıt
         LeaveRequest leaveRequest = new LeaveRequest();
         leaveRequest.setEmployee(employee);
         leaveRequest.setLeaveType(leaveType);
         leaveRequest.setStartDateTime(request.getStartDate());
         leaveRequest.setEndDateTime(request.getEndDate());
-        
-        // DİKKAT: Senin Entity'de isim "durationHours" olduğu için bunu kullanıyoruz.
-        leaveRequest.setDurationHours(duration); 
-        
+        leaveRequest.setDurationHours(duration);
         leaveRequest.setReason(request.getReason());
-        
-        // DİKKAT: Senin Entity'de varsayılan statü bu.
         leaveRequest.setRequestStatus(RequestStatus.PENDING_APPROVAL);
-
-        // DİKKAT: Entity'de "nullable = false" olduğu için bunu set etmeliyiz.
-        // Task 10'da burası dinamik olacak, şimdilik "MANAGER" atıyoruz.
-        leaveRequest.setWorkflowNextApproverRole("MANAGER"); 
+        leaveRequest.setWorkflowNextApproverRole("MANAGER");
 
         LeaveRequest savedRequest = leaveRequestRepository.save(leaveRequest);
 
-        // 7. Cevap Dön (DTO)
         return LeaveRequestResponse.builder()
                 .id(savedRequest.getId())
                 .leaveTypeName(leaveType.getName())
@@ -96,7 +86,32 @@ public class LeaveRequestService {
                 .endDate(savedRequest.getEndDateTime())
                 .duration(savedRequest.getDurationHours())
                 .status(savedRequest.getRequestStatus())
-                .createdAt(LocalDateTime.now()) // BaseEntity'den gelmiyorsa manuel set ettim
+                .createdAt(LocalDateTime.now())
                 .build();
+    }
+
+    // --- TASK 9: İZİN İPTALİ  ---
+    @Transactional
+    public void cancelLeaveRequest(Long id) {
+        // 1. Güvenlik: İşlemi yapan kim?
+        String currentEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        // 2. İzni bul
+        LeaveRequest request = leaveRequestRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("İzin talebi bulunamadı ID: " + id));
+
+        // 3. Yetki Kontrolü: Başkasının iznini iptal edemezsin
+        if (!request.getEmployee().getEmail().equals(currentEmail)) {
+            throw new IllegalStateException("Bu işlem için yetkiniz yok! Sadece kendi izinlerinizi iptal edebilirsiniz.");
+        }
+
+        // 4. Mantık Kontrolü: Sadece 'Bekleyen' izinler iptal edilebilir
+        if (request.getRequestStatus() != RequestStatus.PENDING_APPROVAL) {
+            throw new IllegalStateException("Sadece onay bekleyen izin talepleri iptal edilebilir. Şu anki durum: " + request.getRequestStatus());
+        }
+
+        // 5. İptal Et (Veritabanından silmiyoruz, durumunu güncelliyoruz -> Soft Delete mantığı)
+        request.setRequestStatus(RequestStatus.CANCELLED);
+        leaveRequestRepository.save(request);
     }
 }
