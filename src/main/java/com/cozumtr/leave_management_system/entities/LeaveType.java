@@ -20,7 +20,7 @@ public class LeaveType extends BaseEntity {
     private String name;
 
     @Column(name = "is_paid", nullable = false)
-    private boolean isPaid = true;
+    private Boolean isPaid = true;
 
     @Column(name = "deducts_from_annual", nullable = false)
     private boolean deductsFromAnnual = true;
@@ -40,5 +40,8 @@ public class LeaveType extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "request_unit", nullable = false)
     private RequestUnit requestUnit = RequestUnit.DAY;
+
+    @Column(name = "is_active", nullable = false)
+    private Boolean isActive = true;
 
 }
