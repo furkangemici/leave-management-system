@@ -39,4 +39,16 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
     boolean hasOverlappingLeave(@Param("personnelId") Long personnelId,
                                 @Param("start") LocalDateTime start,
                                 @Param("end") LocalDateTime end);
+
+
+    // Kişi ID'si sormadan, verilen tarih aralığına denk gelen TÜM onaylı izinleri getirir.
+    @Query("SELECT l FROM LeaveRequest l WHERE " +
+            "l.requestStatus = :status AND " +
+            "l.startDateTime <= :sprintEnd AND " +
+            "l.endDateTime >= :sprintStart")
+    List<LeaveRequest> findOverlappingLeavesForReport(
+            @Param("sprintStart") LocalDateTime sprintStart,
+            @Param("sprintEnd") LocalDateTime sprintEnd,
+            @Param("status") RequestStatus status
+    );
 }
