@@ -135,7 +135,7 @@ class AuthControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("/api/auth/login - Başarılı giriş senaryosu")
+    @DisplayName("POST/api/auth/login - Başarılı giriş senaryosu")
     void login_Success_ShouldReturnToken() throws Exception {
         String body = """
                 {
@@ -154,7 +154,7 @@ class AuthControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("/api/auth/login - Yanlış şifre ile giriş başarısız olmalı")
+    @DisplayName("POST/api/auth/login - Yanlış şifre ile giriş başarısız olmalı")
     void login_WrongPassword_ShouldReturnUnauthorized() throws Exception {
         String body = """
                 {
@@ -170,7 +170,7 @@ class AuthControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("/api/auth/invite - EMPLOYEE rolü ile 403 Forbidden dönmeli")
+    @DisplayName("POST /api/auth/invite - EMPLOYEE rolü ile 403 Forbidden dönmeli")
     void invite_WithEmployeeRole_ShouldReturnForbidden() throws Exception {
         String token = loginAndGetToken(EMPLOYEE_EMAIL, PASSWORD);
 
@@ -184,7 +184,7 @@ class AuthControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("/api/auth/invite - HR rolü ile 201 Created dönmeli")
+    @DisplayName("POST /api/auth/invite - HR rolü ile 201 Created dönmeli")
     void invite_WithHrRole_ShouldReturnCreated() throws Exception {
         String token = loginAndGetToken(HR_EMAIL, PASSWORD);
 

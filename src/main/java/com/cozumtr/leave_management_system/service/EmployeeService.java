@@ -30,7 +30,15 @@ public class EmployeeService {
         return employeeRepository.findByDepartmentId(departmentId);
     }
 
+  
+    public UserResponse getMyProfile() {
+        String loggedInEmail = SecurityContextHolder.getContext().getAuthentication().getName();
 
+        Employee employee = employeeRepository.findByEmail(loggedInEmail)
+                .orElseThrow(() -> new EntityNotFoundException("Kullanıcı bulunamadı: " + loggedInEmail));
+
+        return new UserResponse(employee);
+    }
 
     @Transactional
     public UserResponse updateProfile(UpdateProfileRequest request) {
@@ -43,7 +51,6 @@ public class EmployeeService {
         Employee employee = employeeRepository.findByEmail(loggedInEmail)
                 .orElseThrow(() -> new EntityNotFoundException("Kullanıcı bulunamadı: " + loggedInEmail));
 
-        // 3. Güncelleme işlemleri (Sadece dolu gelen alanları)
         if (request.getPhoneNumber() != null) {
             employee.setPhoneNumber(request.getPhoneNumber());
         }
@@ -52,10 +59,8 @@ public class EmployeeService {
             employee.setAddress(request.getAddress());
         }
 
-        // 4. Kaydet
         Employee savedEmployee = employeeRepository.save(employee);
 
-        // 5. Frontend'e güncel veriyi dön (UserResponse DTO)
         return new UserResponse(savedEmployee);
     }
 }
