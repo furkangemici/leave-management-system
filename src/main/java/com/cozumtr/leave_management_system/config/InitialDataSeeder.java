@@ -7,6 +7,7 @@ import com.cozumtr.leave_management_system.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
@@ -17,6 +18,7 @@ import java.util.*;
 @Component
 @RequiredArgsConstructor
 @Slf4j
+@Profile("!test") 
 public class InitialDataSeeder implements CommandLineRunner {
 
     private final PermissionRepository permissionRepository;

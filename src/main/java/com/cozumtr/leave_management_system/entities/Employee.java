@@ -45,6 +45,9 @@ public class Employee extends BaseEntity {
     @Column(name = "hire_date", nullable = false)
     private LocalDate hireDate;
 
+    @Column(name = "phone_number", length = 20)
+    private String phoneNumber;
+
     // --- ÇALIŞMA BİLGİLERİ ---
 
     @Column(name = "daily_work_hours", nullable = false, precision = 4, scale = 1)
