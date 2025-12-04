@@ -21,7 +21,7 @@ public class EmployeeResponseDto {
     private String jobTitle;
     private LocalDate hireDate;
     private Boolean isActive;
-    private Set<String> roles; // RBAC için: Frontend hangi menüleri göstereceğini bilir
+    private Set<String> roles; 
     private String departmentName;
     private String managerFullName;
     private BigDecimal dailyWorkHours;
