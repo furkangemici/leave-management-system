@@ -45,9 +45,6 @@ public class Employee extends BaseEntity {
     @Column(name = "hire_date", nullable = false)
     private LocalDate hireDate;
 
-    // --- İLETİŞİM BİLGİLERİ (Task 6 - Profil Güncelleme İçin Eklendi) ---
-    // Sınıfın içine, diğer değişkenlerin yanına ekliyoruz:
-
     @Column(name = "phone_number", length = 20)
     private String phoneNumber;
 
