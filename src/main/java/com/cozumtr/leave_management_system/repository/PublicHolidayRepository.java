@@ -9,7 +9,6 @@ import java.util.List;
 
 @Repository
 public interface PublicHolidayRepository extends JpaRepository<PublicHoliday, Long> {
-
     /**
      * Verilen başlangıç ve bitiş tarihleri (dahil) arasındaki tüm resmi tatilleri getirir.
      * Bu metot, hesaplama sırasında gereksiz veri çekilmesini önler.
