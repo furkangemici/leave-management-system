@@ -10,13 +10,15 @@ import java.time.LocalDateTime;
 
 @Getter
 @Setter
-@Builder // Nesne oluşturmayı kolaylaştırır
+@Builder 
 public class LeaveRequestResponse {
     private Long id;
     private String leaveTypeName;
     private LocalDateTime startDate;
     private LocalDateTime endDate;
-    private BigDecimal duration; // Hesaplanan gün sayısı
-    private RequestStatus status; // PENDING, APPROVED vb.
+    private BigDecimal duration; 
+    private RequestStatus status; 
+    private String reason;
+    private String workflowNextApproverRole;
     private LocalDateTime createdAt;
 }

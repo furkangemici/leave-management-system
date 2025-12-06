@@ -1,6 +1,7 @@
 package com.cozumtr.leave_management_system.service;
 
 import com.cozumtr.leave_management_system.entities.PublicHoliday;
+import com.cozumtr.leave_management_system.exception.BusinessException;
 import com.cozumtr.leave_management_system.repository.PublicHolidayRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,7 +35,7 @@ public class LeaveCalculationService {
             return BigDecimal.ZERO;
         }
         if (endDate.isBefore(startDate)) {
-            throw new IllegalArgumentException("Bitiş tarihi başlangıçtan önce olamaz!");
+            throw new BusinessException("Bitiş tarihi başlangıçtan önce olamaz!");
         }
 
         log.info("İzin süresi hesaplanıyor: {} - {}", startDate, endDate);

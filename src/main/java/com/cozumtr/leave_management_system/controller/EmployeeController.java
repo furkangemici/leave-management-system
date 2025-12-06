@@ -17,7 +17,6 @@ public class EmployeeController {
 
     @GetMapping("/profile")
     public ResponseEntity<UserResponse> getMyProfile() {
-        // Kimlik bilgisi JWT'den okunur, kullanıcı sadece kendi profilini görebilir.
         UserResponse userResponse = employeeService.getMyProfile();
         return ResponseEntity.ok(userResponse);
     }
