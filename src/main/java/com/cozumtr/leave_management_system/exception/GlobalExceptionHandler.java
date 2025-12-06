@@ -78,11 +78,21 @@ public class GlobalExceptionHandler {
                 .body(buildBody(HttpStatus.UNAUTHORIZED, "Kimlik doğrulaması başarısız"));
     }
 
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<Map<String, Object>> handleBusinessException(BusinessException ex) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(buildBody(HttpStatus.BAD_REQUEST, ex.getMessage()));
+    }
+
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, Object>> handleRuntime(RuntimeException ex) {
+        String message = ex.getMessage() != null && !ex.getMessage().isEmpty() 
+                ? ex.getMessage() 
+                : "Beklenmeyen bir hata oluştu";
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(buildBody(HttpStatus.INTERNAL_SERVER_ERROR, "Beklenmeyen bir hata oluştu"));
+                .body(buildBody(HttpStatus.INTERNAL_SERVER_ERROR, message));
     }
 }
 

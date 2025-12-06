@@ -4,6 +4,7 @@ import com.cozumtr.leave_management_system.dto.request.LoginRequestDto;
 import com.cozumtr.leave_management_system.dto.request.RegisterRequestDto;
 import com.cozumtr.leave_management_system.dto.response.AuthResponseDto;
 import com.cozumtr.leave_management_system.dto.response.EmployeeResponseDto;
+import com.cozumtr.leave_management_system.exception.BusinessException;
 import com.cozumtr.leave_management_system.entities.Department;
 import com.cozumtr.leave_management_system.entities.Employee;
 import com.cozumtr.leave_management_system.entities.Role;
@@ -53,7 +54,7 @@ public class AuthService {
 
         // 1. KİLİT KONTROLÜ: Kullanıcı varsa ve hesap kilitliyse direkt hata fırlat
         if (user != null && user.getFailedLoginAttempts() >= 5) {
-            throw new RuntimeException("Hesabınız güvenlik nedeniyle kilitlenmiştir. Lütfen 'Şifremi Unuttum' ile şifrenizi sıfırlayın.");
+            throw new BusinessException("Hesabınız güvenlik nedeniyle kilitlenmiştir. Lütfen 'Şifremi Unuttum' ile şifrenizi sıfırlayın.");
         }
 
         try {
@@ -71,12 +72,12 @@ public class AuthService {
 
             // Kullanıcı aktif değilse hata ver
             if (!user.getIsActive()) {
-                throw new RuntimeException("Hesabınız aktif değil. Lütfen önce hesabınızı aktifleştirin.");
+                throw new BusinessException("Hesabınız aktif değil. Lütfen önce hesabınızı aktifleştirin.");
             }
 
             // Şifre kontrolü (Spring Security zaten yaptı ama ekstra kontrol)
             if (user.getPasswordHash() == null) {
-                throw new RuntimeException("Şifreniz henüz belirlenmemiş. Lütfen hesabınızı aktifleştirin.");
+                throw new BusinessException("Şifreniz henüz belirlenmemiş. Lütfen hesabınızı aktifleştirin.");
             }
 
             // 3. ŞİFRE KONTROLÜ BAŞARILI İSE: Eğer failedLoginAttempts > 0 ise sıfırla
@@ -120,16 +121,16 @@ public class AuthService {
                 if (remainingAttempts <= 0) {
                     // 5. hatayı yaptı, hesap kilitlendi
                     log.warn("Hesap kilitlendi: {} (5 başarısız deneme)", request.getEmail());
-                    throw new RuntimeException("Hesabınız kilitlendi. Lütfen şifrenizi sıfırlayın.");
+                    throw new BusinessException("Hesabınız kilitlendi. Lütfen şifrenizi sıfırlayın.");
                 } else {
                     // Genel hata mesajı (kalan hak bilgisi gösterilmez)
                     log.warn("Başarısız giriş denemesi: {} (Deneme: {}/5, Kalan: {})", 
                             request.getEmail(), failedAttempts, remainingAttempts);
-                    throw new RuntimeException("Giriş bilgileri hatalı. Lütfen tekrar deneyin.");
+                    throw new BusinessException("Giriş bilgileri hatalı. Lütfen tekrar deneyin.");
                 }
             } else {
                 // Kullanıcı bulunamadı - genel hata mesajı
-                throw new RuntimeException("Giriş bilgileri hatalı. Lütfen tekrar deneyin.");
+                throw new BusinessException("Giriş bilgileri hatalı. Lütfen tekrar deneyin.");
             }
         }
     }
@@ -142,7 +143,7 @@ public class AuthService {
     public void seedInitialUser(String adminEmail, String rawPassword) {
         // HR rolü veritabanında hazır olmalı (InitialDataSeeder tarafından oluşturuluyor)
         Role hrRole = roleRepository.findByRoleName("HR")
-                .orElseThrow(() -> new IllegalStateException("HR rolü bulunamadı. InitialDataSeeder kontrol et."));
+                .orElseThrow(() -> new BusinessException("HR rolü bulunamadı. InitialDataSeeder kontrol et."));
 
         // Email'e göre kullanıcı var mı kontrol et
         if (userRepository.findByEmployeeEmail(adminEmail).isPresent()) {
@@ -199,12 +200,12 @@ public class AuthService {
     public EmployeeResponseDto inviteUser(RegisterRequestDto request) {
         // Email zaten kullanılıyor mu kontrol et
         if (employeeRepository.findByEmail(request.getEmail()).isPresent()) {
-            throw new RuntimeException("Bu email adresi zaten kullanılıyor: " + request.getEmail());
+            throw new BusinessException("Bu email adresi zaten kullanılıyor: " + request.getEmail());
         }
 
         // Departmanı bul
         Department department = departmentRepository.findById(request.getDepartmentId())
-                .orElseThrow(() -> new RuntimeException("Departman bulunamadı: " + request.getDepartmentId()));
+                .orElseThrow(() -> new BusinessException("Departman bulunamadı: " + request.getDepartmentId()));
 
         // Employee oluştur
         Employee employee = new Employee();
@@ -234,8 +235,14 @@ public class AuthService {
 
         // İK'nın belirttiği rolü ekle
         Role role = roleRepository.findById(request.getRoleId())
-                .orElseThrow(() -> new RuntimeException("Rol bulunamadı: " + request.getRoleId()));
+                .orElseThrow(() -> new BusinessException("Rol bulunamadı: " + request.getRoleId()));
         user.getRoles().add(role);
+
+        // Default EMPLOYEE rolünü ekle (her kullanıcı aynı zamanda EMPLOYEE'dir)
+        // Eğer seçilen rol zaten EMPLOYEE ise, Set duplicate'ı engelleyecektir
+        Role employeeRole = roleRepository.findByRoleName("EMPLOYEE")
+                .orElseThrow(() -> new BusinessException("EMPLOYEE rolü bulunamadı. InitialDataSeeder kontrol et."));
+        user.getRoles().add(employeeRole);
 
         userRepository.save(user);
 
@@ -284,12 +291,12 @@ public class AuthService {
     public AuthResponseDto activateUserAndSetPassword(String token, String newPassword, String passwordConfirm) {
         // Şifre tekrarı kontrolü
         if (!newPassword.equals(passwordConfirm)) {
-            throw new RuntimeException("Şifre ve şifre tekrarı eşleşmiyor");
+            throw new BusinessException("Şifre ve şifre tekrarı eşleşmiyor");
         }
 
         // Şifre karmaşıklığı kontrolü (en az 8 karakter - DTO'da @Size var ama servis katmanında da kontrol)
         if (newPassword.length() < 8 || newPassword.length() > 30) {
-            throw new RuntimeException("Şifre en az 8, en fazla 30 karakter olmalıdır");
+            throw new BusinessException("Şifre en az 8, en fazla 30 karakter olmalıdır");
         }
 
         // Token'a göre kullanıcıyı bul (optimize edilmiş sorgu)
@@ -297,7 +304,7 @@ public class AuthService {
                         token,
                         java.time.LocalDateTime.now()
                 )
-                .orElseThrow(() -> new RuntimeException("Geçersiz veya süresi dolmuş aktivasyon token'ı"));
+                .orElseThrow(() -> new BusinessException("Geçersiz veya süresi dolmuş aktivasyon token'ı"));
 
         // Şifreyi hash'le ve kaydet
         user.setPasswordHash(passwordEncoder.encode(newPassword));
@@ -410,12 +417,12 @@ public class AuthService {
     public void resetPassword(String token, String newPassword, String passwordConfirm) {
         // Şifre tekrarı kontrolü
         if (!newPassword.equals(passwordConfirm)) {
-            throw new RuntimeException("Şifre ve şifre tekrarı eşleşmiyor");
+            throw new BusinessException("Şifre ve şifre tekrarı eşleşmiyor");
         }
 
         // Şifre karmaşıklığı kontrolü
         if (newPassword.length() < 8 || newPassword.length() > 30) {
-            throw new RuntimeException("Şifre en az 8, en fazla 30 karakter olmalıdır");
+            throw new BusinessException("Şifre en az 8, en fazla 30 karakter olmalıdır");
         }
 
         // Token'a göre kullanıcıyı bul (süresi dolmamış olmalı)
@@ -423,11 +430,11 @@ public class AuthService {
                         token,
                         java.time.LocalDateTime.now()
                 )
-                .orElseThrow(() -> new RuntimeException("Geçersiz veya süresi dolmuş şifre sıfırlama token'ı"));
+                .orElseThrow(() -> new BusinessException("Geçersiz veya süresi dolmuş şifre sıfırlama token'ı"));
 
         // Kullanıcı aktif değilse hata ver
         if (!user.getIsActive()) {
-            throw new RuntimeException("Hesabınız aktif değil");
+            throw new BusinessException("Hesabınız aktif değil");
         }
 
         // Yeni şifreyi hash'le ve kaydet

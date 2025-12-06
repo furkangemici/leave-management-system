@@ -14,6 +14,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
@@ -48,8 +49,12 @@ public class SecurityConfig {
                         ).permitAll()
 
                         // 2. İK/Admin endpoint'leri (sadece yetkili kullanıcılar)
-                        .requestMatchers("/api/auth/invite")
+                        .requestMatchers("/api/auth/invite", "/api/auth/roles", "/api/auth/departments")
                                 .hasRole("HR")
+
+                        // 2.5. İzin talebi oluşturma (sadece EMPLOYEE rolü)
+                        .requestMatchers(HttpMethod.POST, "/api/leaves")
+                                .hasRole("EMPLOYEE")
 
                         // 3. Tüm diğer API endpoint'leri için JWT token gerekli
                         .anyRequest().authenticated()
