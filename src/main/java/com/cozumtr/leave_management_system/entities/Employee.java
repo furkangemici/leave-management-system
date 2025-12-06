@@ -17,7 +17,7 @@ import java.time.LocalDate;
 @Getter
 @Setter
 @ToString
-@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@EqualsAndHashCode(onlyExplicitlyIncluded = true, callSuper = false)
 @Check(constraints = "daily_work_hours >= 0")
 public class Employee extends BaseEntity {
     @Id

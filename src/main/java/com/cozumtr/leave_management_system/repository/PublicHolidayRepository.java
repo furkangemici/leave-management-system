@@ -9,8 +9,13 @@ import java.util.List;
 
 @Repository
 public interface PublicHolidayRepository extends JpaRepository<PublicHoliday, Long> {
-
-    // Verilen iki tarih (başlangıç ve bitiş dahil) arasındaki tatilleri getirir.
-    // SQL: SELECT * FROM public_holidays WHERE holiday_date BETWEEN start AND end
+    /**
+     * Verilen başlangıç ve bitiş tarihleri (dahil) arasındaki tüm resmi tatilleri getirir.
+     * Bu metot, hesaplama sırasında gereksiz veri çekilmesini önler.
+     *
+     * @param startDate Sorgu başlangıç tarihi
+     * @param endDate   Sorgu bitiş tarihi
+     * @return O aralıktaki tatil listesi
+     */
     List<PublicHoliday> findAllByDateBetween(LocalDate startDate, LocalDate endDate);
 }

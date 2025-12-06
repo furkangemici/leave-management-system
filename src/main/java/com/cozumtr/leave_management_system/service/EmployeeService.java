@@ -51,6 +51,7 @@ public class EmployeeService {
         Employee employee = employeeRepository.findByEmail(loggedInEmail)
                 .orElseThrow(() -> new EntityNotFoundException("Kullanıcı bulunamadı: " + loggedInEmail));
 
+        // 3. Güncelleme işlemleri (Sadece dolu gelen alanları)
         if (request.getPhoneNumber() != null) {
             employee.setPhoneNumber(request.getPhoneNumber());
         }
