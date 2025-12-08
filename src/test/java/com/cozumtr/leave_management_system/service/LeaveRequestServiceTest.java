@@ -87,6 +87,7 @@ class LeaveRequestServiceTest {
         testLeaveType = new LeaveType();
         testLeaveType.setId(1L);
         testLeaveType.setName("Yıllık İzin");
+        testLeaveType.setDeductsFromAnnual(true);
         testLeaveType.setWorkflowDefinition("HR,MANAGER,CEO");
 
 
@@ -272,7 +273,7 @@ class LeaveRequestServiceTest {
         BusinessException exception = assertThrows(BusinessException.class, () -> {
             leaveRequestService.createLeaveRequest(createRequest);
         });
-        assertTrue(exception.getMessage().contains("İzin bakiyesi bulunamadı"));
+        assertTrue(exception.getMessage().contains("Yıllık izin bakiyesi bulunamadı"));
         verify(leaveRequestRepository, never()).save(any());
     }
 
@@ -300,7 +301,7 @@ class LeaveRequestServiceTest {
         BusinessException exception = assertThrows(BusinessException.class, () -> {
             leaveRequestService.createLeaveRequest(createRequest);
         });
-        assertTrue(exception.getMessage().contains("Yetersiz izin bakiyesi"));
+        assertTrue(exception.getMessage().contains("Yetersiz yıllık izin bakiyesi"));
         assertTrue(exception.getMessage().contains("16.0"));
         assertTrue(exception.getMessage().contains("5.0"));
         verify(leaveRequestRepository, never()).save(any());
@@ -451,29 +452,41 @@ class LeaveRequestServiceTest {
 
 
     @Test
-    @DisplayName("cancelLeaveRequest - APPROVED durumundaki izin iptal edilememeli")
-    void cancelLeaveRequest_ApprovedStatus_ShouldThrowBusinessException() {
+    @DisplayName("cancelLeaveRequest - APPROVED durumundaki izin iptal edilebilmeli ve bakiye geri alınmalı")
+    void cancelLeaveRequest_ApprovedStatus_ShouldCancelAndRestoreBalance() {
         // Arrange
         Long requestId = 100L;
         String email = "test@example.com";
         LeaveRequest leaveRequest = new LeaveRequest();
         leaveRequest.setId(requestId);
         leaveRequest.setEmployee(testEmployee);
+        leaveRequest.setLeaveType(testLeaveType); // LeaveType set edilmeli (restoreLeaveBalance için)
         leaveRequest.setRequestStatus(RequestStatus.APPROVED);
+        leaveRequest.setDurationHours(new BigDecimal("24.0"));
 
+        testEntitlement.setHoursUsed(new BigDecimal("44.0")); // 40 + 24 kullanılmış
 
         when(securityContext.getAuthentication()).thenReturn(authentication);
         when(authentication.getName()).thenReturn(email);
         when(leaveRequestRepository.findById(requestId)).thenReturn(Optional.of(leaveRequest));
+        when(leaveEntitlementRepository.findByEmployeeIdAndYear(
+                eq(1L), eq(LocalDate.now().getYear())))
+                .thenReturn(Optional.of(testEntitlement));
+        when(leaveEntitlementRepository.save(any(LeaveEntitlement.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(leaveRequestRepository.save(any(LeaveRequest.class))).thenReturn(leaveRequest);
 
 
-        // Act & Assert
-        BusinessException exception = assertThrows(BusinessException.class, () -> {
-            leaveRequestService.cancelLeaveRequest(requestId);
-        });
-        assertTrue(exception.getMessage().contains("Sadece onay bekleyen izin talepleri iptal edilebilir"));
-        assertTrue(exception.getMessage().contains("APPROVED"));
-        verify(leaveRequestRepository, never()).save(any());
+        // Act
+        leaveRequestService.cancelLeaveRequest(requestId);
+
+
+        // Assert
+        assertEquals(RequestStatus.CANCELLED, leaveRequest.getRequestStatus());
+        verify(leaveRequestRepository, times(1)).save(leaveRequest);
+        verify(leaveEntitlementRepository, times(1)).save(any(LeaveEntitlement.class));
+        // Bakiye geri alınmalı: 44.0 - 24.0 = 20.0
+        assertEquals(0, testEntitlement.getHoursUsed().compareTo(new BigDecimal("20.0")));
     }
 
 
@@ -498,7 +511,7 @@ class LeaveRequestServiceTest {
         BusinessException exception = assertThrows(BusinessException.class, () -> {
             leaveRequestService.cancelLeaveRequest(requestId);
         });
-        assertTrue(exception.getMessage().contains("Sadece onay bekleyen izin talepleri iptal edilebilir"));
+        assertTrue(exception.getMessage().contains("zaten iptal edilmiş veya reddedilmiş"));
         verify(leaveRequestRepository, never()).save(any());
     }
 
@@ -524,7 +537,7 @@ class LeaveRequestServiceTest {
         BusinessException exception = assertThrows(BusinessException.class, () -> {
             leaveRequestService.cancelLeaveRequest(requestId);
         });
-        assertTrue(exception.getMessage().contains("Sadece onay bekleyen izin talepleri iptal edilebilir"));
+        assertTrue(exception.getMessage().contains("zaten iptal edilmiş veya reddedilmiş"));
         verify(leaveRequestRepository, never()).save(any());
     }
 
