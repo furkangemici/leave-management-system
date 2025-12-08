@@ -80,6 +80,13 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<Map<String, Object>> handleBusinessException(BusinessException ex) {
+        // Yanlış kimlik bilgileri için 401 (Unauthorized) döndür
+        if (ex.getMessage() != null && ex.getMessage().contains("Giriş bilgileri hatalı")) {
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body(buildBody(HttpStatus.UNAUTHORIZED, ex.getMessage()));
+        }
+        // Diğer BusinessException'lar için 400 (Bad Request) döndür
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(buildBody(HttpStatus.BAD_REQUEST, ex.getMessage()));

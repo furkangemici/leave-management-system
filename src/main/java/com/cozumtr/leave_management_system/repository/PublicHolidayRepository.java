@@ -18,4 +18,12 @@ public interface PublicHolidayRepository extends JpaRepository<PublicHoliday, Lo
      * @return O aralıktaki tatil listesi
      */
     List<PublicHoliday> findAllByDateBetween(LocalDate startDate, LocalDate endDate);
+
+    /**
+     * Belirli bir tarihin resmi tatil olup olmadığını kontrol eder.
+     *
+     * @param date Kontrol edilecek tarih
+     * @return Tarih resmi tatil ise true, değilse false
+     */
+    boolean existsByDate(LocalDate date);
 }

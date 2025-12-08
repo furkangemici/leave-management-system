@@ -15,6 +15,7 @@ import com.cozumtr.leave_management_system.repository.LeaveApprovalHistoryReposi
 import com.cozumtr.leave_management_system.repository.LeaveEntitlementRepository;
 import com.cozumtr.leave_management_system.repository.LeaveRequestRepository;
 import com.cozumtr.leave_management_system.repository.LeaveTypeRepository;
+import com.cozumtr.leave_management_system.repository.PublicHolidayRepository;
 import com.cozumtr.leave_management_system.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -38,6 +40,7 @@ public class LeaveRequestService {
     private final LeaveCalculationService leaveCalculationService;
     private final LeaveEntitlementRepository leaveEntitlementRepository;
     private final LeaveApprovalHistoryRepository leaveApprovalHistoryRepository;
+    private final PublicHolidayRepository publicHolidayRepository;
     private final UserRepository userRepository;
 
     // --- İZİN TALEBİ OLUŞTURMA ---
@@ -74,19 +77,42 @@ public class LeaveRequestService {
         // İzin türüne göre süre hesaplama
         if (leaveType.getRequestUnit() == com.cozumtr.leave_management_system.enums.RequestUnit.HOUR) {
             // Saatlik izinler için saat hesaplama
+            // ÖNEMLİ: Saatlik izinler de sadece çalışma günlerinde alınabilir
+            // Hafta sonu ve resmi tatil kontrolü yapılmalı
+            
+            LocalDate startDate = request.getStartDate().toLocalDate();
+            LocalDate endDate = request.getEndDate().toLocalDate();
+            
+            // Hafta sonu kontrolü
+            DayOfWeek startDayOfWeek = startDate.getDayOfWeek();
+            DayOfWeek endDayOfWeek = endDate.getDayOfWeek();
+            boolean isStartWeekend = (startDayOfWeek == DayOfWeek.SATURDAY || startDayOfWeek == DayOfWeek.SUNDAY);
+            boolean isEndWeekend = (endDayOfWeek == DayOfWeek.SATURDAY || endDayOfWeek == DayOfWeek.SUNDAY);
+            
+            if (isStartWeekend || isEndWeekend) {
+                throw new BusinessException("Saatlik izinler hafta sonu günlerinde alınamaz!");
+            }
+            
+            // Resmi tatil kontrolü
+            if (publicHolidayRepository.existsByDate(startDate) || 
+                (!startDate.equals(endDate) && publicHolidayRepository.existsByDate(endDate))) {
+                throw new BusinessException("Saatlik izinler resmi tatil günlerinde alınamaz!");
+            }
+            
+            // Hafta sonu ve tatil kontrolünden geçtiyse saat farkını hesapla
             long hoursBetween = java.time.Duration.between(
                     request.getStartDate(),
                     request.getEndDate()
             ).toHours();
             duration = BigDecimal.valueOf(hoursBetween);
         } else {
-            // Günlük izinler için gün hesaplama
+            // Günlük izinler için net çalışma saatini hesapla
+            // calculateDuration artık saat döndürüyor (hafta sonları ve resmi tatiller düşülmüş)
             duration = leaveCalculationService.calculateDuration(
                     request.getStartDate().toLocalDate(),
-                    request.getEndDate().toLocalDate()
+                    request.getEndDate().toLocalDate(),
+                    employee.getDailyWorkHours()
             );
-            // Günleri saate çevir
-            duration = duration.multiply(employee.getDailyWorkHours());
         }
 
         if (duration.compareTo(BigDecimal.ZERO) <= 0) {

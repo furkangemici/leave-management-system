@@ -22,30 +22,35 @@ public class LeaveCalculationService {
 
     private final PublicHolidayRepository publicHolidayRepository;
 
-    // OPTİMİZASYON (Madde 4):
-    // Döngü içinde sürekli "new" yapmamak için sabitleri en başta tanımlıyoruz.
-    // Bu sayede bellek (RAM) ve işlemciyi yormuyoruz.
-    private static final BigDecimal HALF_DAY = new BigDecimal("0.5");
-    private static final BigDecimal FULL_DAY = BigDecimal.ONE;
-
-    public BigDecimal calculateDuration(LocalDate startDate, LocalDate endDate) {
+    /**
+     * İki tarih arasındaki net çalışma saatini hesaplar.
+     * Hafta sonları (Cumartesi-Pazar) ve resmi tatiller düşülür.
+     * Yarım gün tatiller (arife) yarım gün olarak sayılır.
+     *
+     * @param startDate Başlangıç tarihi
+     * @param endDate Bitiş tarihi
+     * @param dailyWorkHours Günlük mesai saati
+     * @return Net kullanılacak izin saati (BigDecimal)
+     */
+    public BigDecimal calculateDuration(LocalDate startDate, LocalDate endDate, BigDecimal dailyWorkHours) {
         // --- 1. GÜVENLİK VE VALİDASYON ---
         if (startDate == null || endDate == null) {
             log.warn("Hesaplama hatası: Tarihler boş olamaz.");
+            return BigDecimal.ZERO;
+        }
+        if (dailyWorkHours == null || dailyWorkHours.compareTo(BigDecimal.ZERO) <= 0) {
+            log.warn("Hesaplama hatası: Günlük mesai saati geçersiz.");
             return BigDecimal.ZERO;
         }
         if (endDate.isBefore(startDate)) {
             throw new BusinessException("Bitiş tarihi başlangıçtan önce olamaz!");
         }
 
-        log.info("İzin süresi hesaplanıyor: {} - {}", startDate, endDate);
+        log.info("İzin süresi hesaplanıyor: {} - {}, Günlük mesai: {} saat", startDate, endDate, dailyWorkHours);
 
-        // --- 2. VERİ HAZIRLIĞI ---
+        // --- 2. VERİ HAZIRLIĞI (Performans Optimizasyonu) ---
+        // Tüm resmi tatilleri bir kere çekip Map'e al (döngü içinde sorgu yapmamak için)
         List<PublicHoliday> holidays = publicHolidayRepository.findAllByDateBetween(startDate, endDate);
-
-        // OPTİMİZASYON (Madde 2): (h1, h2) -> h1
-        // Eğer veritabanında yanlışlıkla aynı güne 2 tatil girilmişse program çökmesin,
-        // ilk bulduğu tatili kullansın. (Defensive Coding)
         Map<LocalDate, PublicHoliday> holidayMap = holidays.stream()
                 .collect(Collectors.toMap(
                         PublicHoliday::getDate,
@@ -53,12 +58,11 @@ public class LeaveCalculationService {
                         (existing, replacement) -> existing // Çakışma varsa mevcut olanı koru
                 ));
 
-        BigDecimal totalLeaveDays = BigDecimal.ZERO;
+        // --- 3. HESAPLAMA DÖNGÜSÜ ---
+        BigDecimal netWorkingHours = BigDecimal.ZERO;
         LocalDate currentDate = startDate;
 
-        // --- 3. HESAPLAMA DÖNGÜSÜ ---
         while (!currentDate.isAfter(endDate)) {
-
             // A) Hafta Sonu Kontrolü
             DayOfWeek dayOfWeek = currentDate.getDayOfWeek();
             boolean isWeekend = (dayOfWeek == DayOfWeek.SATURDAY || dayOfWeek == DayOfWeek.SUNDAY);
@@ -68,26 +72,26 @@ public class LeaveCalculationService {
                 continue; // Hafta sonu izin sayılmaz, sonraki güne geç
             }
 
-            // B) Resmi Tatil Kontrolü
-            if (holidayMap.containsKey(currentDate)) {
-                PublicHoliday holiday = holidayMap.get(currentDate);
-
+            // B) Resmi Tatil Kontrolü (Map'ten kontrol ediyoruz - tek sorgu)
+            PublicHoliday holiday = holidayMap.get(currentDate);
+            if (holiday != null) {
                 if (holiday.isHalfDay()) {
-                    // Yarım gün tatil (Arife) -> 0.5 gün ekle
-                    totalLeaveDays = totalLeaveDays.add(HALF_DAY); // Sabit değişken kullandık
-                    log.debug("{} tarihi Arife günü (0.5) olarak hesaplandı.", currentDate);
+                    // Yarım gün tatil (Arife) -> 0.5 gün * dailyWorkHours saat ekle
+                    BigDecimal halfDayHours = dailyWorkHours.multiply(new BigDecimal("0.5"));
+                    netWorkingHours = netWorkingHours.add(halfDayHours);
+                    log.debug("{} tarihi Arife günü ({} saat) olarak hesaplandı.", currentDate, halfDayHours);
                 }
-                // Tam gün tatilse hiçbir şey ekleme (0 gün sayılır).
+                // Tam gün tatilse hiçbir şey ekleme (0 saat sayılır).
             }
             // C) Normal İş Günü
             else {
-                totalLeaveDays = totalLeaveDays.add(FULL_DAY); // Sabit değişken kullandık
+                netWorkingHours = netWorkingHours.add(dailyWorkHours);
             }
 
             currentDate = currentDate.plusDays(1);
         }
 
-        log.info("Hesaplama tamamlandı. Toplam İzin: {} gün", totalLeaveDays);
-        return totalLeaveDays;
+        log.info("Hesaplama tamamlandı. Toplam İzin: {} saat", netWorkingHours);
+        return netWorkingHours;
     }
 }
