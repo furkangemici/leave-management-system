@@ -99,13 +99,7 @@ public class AuthService {
             userRepository.save(user);
 
             // AuthResponseDto oluştur ve döndür
-            return AuthResponseDto.builder()
-                    .token(token)
-                    .tokenType("Bearer")
-                    .userId(user.getId())
-                    .userEmail(user.getEmployee().getEmail())
-                    .roles(roles)
-                    .build();
+            return mapToAuthResponse(token, user, roles);
 
         } catch (org.springframework.security.authentication.BadCredentialsException e) {
             // 2. ŞİFRE KONTROLÜ BAŞARISIZ İSE: Deneme sayacını artır
@@ -256,30 +250,8 @@ public class AuthService {
                 .map(Role::getRoleName)
                 .collect(Collectors.toSet());
 
-        // Departman adını al
-        String departmentName = employee.getDepartment().getName();
-
-        // Yönetici adını al (departmanın yöneticisi varsa)
-        String managerFullName = null;
-        if (employee.getDepartment().getManager() != null) {
-            Employee manager = employee.getDepartment().getManager();
-            managerFullName = manager.getFirstName() + " " + manager.getLastName();
-        }
-
         // EmployeeResponseDto döndür
-        return EmployeeResponseDto.builder()
-                .id(employee.getId())
-                .firstName(employee.getFirstName())
-                .lastName(employee.getLastName())
-                .email(employee.getEmail())
-                .jobTitle(employee.getJobTitle())
-                .hireDate(employee.getHireDate())
-                .isActive(employee.getIsActive())
-                .roles(roles)
-                .departmentName(departmentName)
-                .managerFullName(managerFullName)
-                .dailyWorkHours(employee.getDailyWorkHours())
-                .build();
+        return mapToEmployeeResponse(employee, roles);
     }
 
     /**
@@ -333,13 +305,7 @@ public class AuthService {
         userRepository.save(user);
 
         // AuthResponseDto döndür
-        return AuthResponseDto.builder()
-                .token(jwtToken)
-                .tokenType("Bearer")
-                .userId(user.getId())
-                .userEmail(employee.getEmail())
-                .roles(roles)
-                .build();
+        return mapToAuthResponse(jwtToken, user, roles);
     }
 
     /**
@@ -451,6 +417,57 @@ public class AuthService {
         userRepository.save(user);
 
         log.info("Şifre başarıyla sıfırlandı: {}", user.getEmployee().getEmail());
+    }
+
+    /**
+     * User ve roller bilgilerini AuthResponseDto'ya çevirir.
+     * 
+     * @param token JWT token
+     * @param user User entity
+     * @param roles Kullanıcı rolleri
+     * @return AuthResponseDto
+     */
+    private AuthResponseDto mapToAuthResponse(String token, User user, Set<String> roles) {
+        return AuthResponseDto.builder()
+                .token(token)
+                .tokenType("Bearer")
+                .userId(user.getId())
+                .userEmail(user.getEmployee().getEmail())
+                .roles(roles)
+                .build();
+    }
+
+    /**
+     * Employee ve roller bilgilerini EmployeeResponseDto'ya çevirir.
+     * 
+     * @param employee Employee entity
+     * @param roles Kullanıcı rolleri
+     * @return EmployeeResponseDto
+     */
+    private EmployeeResponseDto mapToEmployeeResponse(Employee employee, Set<String> roles) {
+        // Departman adını al
+        String departmentName = employee.getDepartment().getName();
+
+        // Yönetici adını al (departmanın yöneticisi varsa)
+        String managerFullName = null;
+        if (employee.getDepartment().getManager() != null) {
+            Employee manager = employee.getDepartment().getManager();
+            managerFullName = manager.getFirstName() + " " + manager.getLastName();
+        }
+
+        return EmployeeResponseDto.builder()
+                .id(employee.getId())
+                .firstName(employee.getFirstName())
+                .lastName(employee.getLastName())
+                .email(employee.getEmail())
+                .jobTitle(employee.getJobTitle())
+                .hireDate(employee.getHireDate())
+                .isActive(employee.getIsActive())
+                .roles(roles)
+                .departmentName(departmentName)
+                .managerFullName(managerFullName)
+                .dailyWorkHours(employee.getDailyWorkHours())
+                .build();
     }
 }
 

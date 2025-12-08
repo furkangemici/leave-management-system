@@ -30,6 +30,19 @@ public class EmployeeService {
         return employeeRepository.findByDepartmentId(departmentId);
     }
 
+    /**
+     * Giriş yapan kullanıcının Employee ID'sini döndürür.
+     * 
+     * @return Çalışan ID'si
+     * @throws EntityNotFoundException Eğer çalışan bulunamazsa
+     */
+    public Long getCurrentEmployeeId() {
+        String loggedInEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+        Employee employee = employeeRepository.findByEmail(loggedInEmail)
+                .orElseThrow(() -> new EntityNotFoundException("Kullanıcı bulunamadı: " + loggedInEmail));
+        return employee.getId();
+    }
+
   
     public UserResponse getMyProfile() {
         String loggedInEmail = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -37,7 +50,7 @@ public class EmployeeService {
         Employee employee = employeeRepository.findByEmail(loggedInEmail)
                 .orElseThrow(() -> new EntityNotFoundException("Kullanıcı bulunamadı: " + loggedInEmail));
 
-        return new UserResponse(employee);
+        return mapToResponse(employee);
     }
 
     @Transactional
@@ -62,6 +75,35 @@ public class EmployeeService {
 
         Employee savedEmployee = employeeRepository.save(employee);
 
-        return new UserResponse(savedEmployee);
+        return mapToResponse(savedEmployee);
+    }
+
+    /**
+     * Employee Entity'yi UserResponse DTO'suna çevirir.
+     * 
+     * @param employee Employee entity
+     * @return UserResponse DTO
+     */
+    private UserResponse mapToResponse(Employee employee) {
+        String departmentName = null;
+        if (employee.getDepartment() != null) {
+            departmentName = employee.getDepartment().getName();
+        }
+
+        String roleName = null;
+        if (employee.getUser() != null && employee.getUser().getRoles() != null && !employee.getUser().getRoles().isEmpty()) {
+            roleName = employee.getUser().getRoles().iterator().next().getRoleName();
+        }
+
+        return UserResponse.builder()
+                .id(employee.getId())
+                .email(employee.getEmail())
+                .firstName(employee.getFirstName())
+                .lastName(employee.getLastName())
+                .phoneNumber(employee.getPhoneNumber())
+                .address(employee.getAddress())
+                .departmentName(departmentName)
+                .roleName(roleName)
+                .build();
     }
 }

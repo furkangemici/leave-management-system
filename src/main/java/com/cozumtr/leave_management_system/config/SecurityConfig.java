@@ -8,6 +8,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -20,6 +21,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
@@ -52,11 +54,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/invite", "/api/auth/roles", "/api/auth/departments")
                                 .hasRole("HR")
 
-                        // 2.5. İzin talebi oluşturma (sadece EMPLOYEE rolü)
-                        .requestMatchers(HttpMethod.POST, "/api/leaves")
-                                .hasRole("EMPLOYEE")
-
                         // 3. Tüm diğer API endpoint'leri için JWT token gerekli
+                        // Rol kontrolleri @PreAuthorize ile metot seviyesinde yapılıyor
                         .anyRequest().authenticated()
                 )
                 // JWT Filter'ı ekle (UsernamePasswordAuthenticationFilter'dan önce)

@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -44,5 +45,51 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate,
             @Param("excludedStatuses") List<RequestStatus> excludedStatuses
+    );
+
+    // 5. İZİN TÜRÜNE GÖRE AYLIK KULLANIM HESAPLAMA
+    // Belirli bir ay için onaylı izinlerin toplam süresini hesaplar (saat cinsinden)
+    @Query("SELECT COALESCE(SUM(l.durationHours), 0) " +
+           "FROM LeaveRequest l " +
+           "WHERE l.employee.id = :employeeId " +
+           "AND l.leaveType.id = :leaveTypeId " +
+           "AND l.requestStatus = 'APPROVED' " +
+           "AND YEAR(l.startDateTime) = :year " +
+           "AND MONTH(l.startDateTime) = :month")
+    BigDecimal calculateMonthlyUsageByLeaveType(
+            @Param("employeeId") Long employeeId,
+            @Param("leaveTypeId") Long leaveTypeId,
+            @Param("year") int year,
+            @Param("month") int month
+    );
+
+    // 6. İZİN TÜRÜNE GÖRE YILLIK KULLANIM HESAPLAMA
+    // Belirli bir yıl için onaylı izinlerin toplam süresini hesaplar (saat cinsinden)
+    @Query("SELECT COALESCE(SUM(l.durationHours), 0) " +
+           "FROM LeaveRequest l " +
+           "WHERE l.employee.id = :employeeId " +
+           "AND l.leaveType.id = :leaveTypeId " +
+           "AND l.requestStatus = 'APPROVED' " +
+           "AND YEAR(l.startDateTime) = :year")
+    BigDecimal calculateYearlyUsageByLeaveType(
+            @Param("employeeId") Long employeeId,
+            @Param("leaveTypeId") Long leaveTypeId,
+            @Param("year") int year
+    );
+
+    // 7. İZİN TÜRÜNE GÖRE AYLIK KULLANIM SAYISI
+    // Belirli bir ay için onaylı mazeret izinlerinin sayısını hesaplar (ayda kaç kere alındı)
+    @Query("SELECT COUNT(l) " +
+           "FROM LeaveRequest l " +
+           "WHERE l.employee.id = :employeeId " +
+           "AND l.leaveType.id = :leaveTypeId " +
+           "AND l.requestStatus = 'APPROVED' " +
+           "AND YEAR(l.startDateTime) = :year " +
+           "AND MONTH(l.startDateTime) = :month")
+    Long countMonthlyUsageByLeaveType(
+            @Param("employeeId") Long employeeId,
+            @Param("leaveTypeId") Long leaveTypeId,
+            @Param("year") int year,
+            @Param("month") int month
     );
 }

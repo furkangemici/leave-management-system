@@ -72,4 +72,34 @@ public class Employee extends BaseEntity {
     @ToString.Exclude
     private User user;
 
+    // --- KIDEM HESAPLAMA ---
+
+    /**
+     * Çalışanın işe giriş tarihine göre kıdem yılını hesaplar.
+     * Örnek: 2020-01-15'te işe başladı, bugün 2024-12-31 ise → 4 yıl kıdem
+     *
+     * @return Kıdem yılı (long)
+     */
+    public long getYearsOfService() {
+        if (hireDate == null) {
+            return 0;
+        }
+        LocalDate today = LocalDate.now();
+        return java.time.temporal.ChronoUnit.YEARS.between(hireDate, today);
+    }
+
+    /**
+     * Çalışanın belirli bir tarihe göre kıdem yılını hesaplar.
+     * Yıl sonu işlemleri için kullanılır.
+     *
+     * @param referenceDate Referans tarih
+     * @return Kıdem yılı (long)
+     */
+    public long getYearsOfServiceAsOf(LocalDate referenceDate) {
+        if (hireDate == null || referenceDate == null) {
+            return 0;
+        }
+        return java.time.temporal.ChronoUnit.YEARS.between(hireDate, referenceDate);
+    }
+
 }
