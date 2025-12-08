@@ -4,6 +4,8 @@ import com.cozumtr.leave_management_system.dto.request.CreateLeaveRequest;
 import com.cozumtr.leave_management_system.dto.response.LeaveRequestResponse;
 import com.cozumtr.leave_management_system.dto.response.LeaveTypeResponse;
 import com.cozumtr.leave_management_system.dto.response.MessageResponseDto;
+import com.cozumtr.leave_management_system.dto.response.TeamLeaveResponseDTO;
+import com.cozumtr.leave_management_system.service.EmployeeService;
 import com.cozumtr.leave_management_system.service.LeaveRequestService;
 import com.cozumtr.leave_management_system.service.LeaveTypeService;
 import jakarta.validation.Valid;
@@ -22,6 +24,7 @@ public class LeaveRequestController {
 
     private final LeaveRequestService leaveRequestService;
     private final LeaveTypeService leaveTypeService;
+    private final EmployeeService employeeService;
 
     // --- KENDİ İZİN TALEPLERİMİ LİSTELEME ---
     @PreAuthorize("hasRole('EMPLOYEE')")
@@ -78,5 +81,14 @@ public class LeaveRequestController {
             @RequestParam(required = false) String comments) {
         LeaveRequestResponse response = leaveRequestService.rejectLeaveRequest(id, comments);
         return ResponseEntity.ok(response);
+    }
+
+    // --- EKİP İZİN TAKİBİ (TEAM VISIBILITY) ---
+    @PreAuthorize("hasRole('EMPLOYEE')")
+    @GetMapping("/team-calendar")
+    public ResponseEntity<List<TeamLeaveResponseDTO>> getTeamCalendar() {
+        Long currentEmployeeId = employeeService.getCurrentEmployeeId();
+        List<TeamLeaveResponseDTO> teamLeaves = leaveRequestService.getTeamApprovedLeaves(currentEmployeeId);
+        return ResponseEntity.ok(teamLeaves);
     }
 }

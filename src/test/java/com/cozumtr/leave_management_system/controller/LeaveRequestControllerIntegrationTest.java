@@ -1,6 +1,7 @@
 package com.cozumtr.leave_management_system.controller;
 
 import com.cozumtr.leave_management_system.entities.*;
+import com.cozumtr.leave_management_system.enums.RequestStatus;
 import com.cozumtr.leave_management_system.repository.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -516,6 +517,216 @@ class LeaveRequestControllerIntegrationTest {
                 .andExpect(jsonPath("$.length()").value(greaterThanOrEqualTo(2)))
                 .andExpect(jsonPath("$[?(@.name == 'Yıllık İzin')]").exists())
                 .andExpect(jsonPath("$[?(@.name == 'Mazeret İzni (Saatlik)')]").exists());
+    }
+
+    // ========== EKİP İZİN TAKİBİ (TEAM VISIBILITY) TESTLERİ ==========
+
+    @Test
+    @DisplayName("GET /api/leaves/team-calendar - Departmandaki onaylanmış izinleri getirmeli")
+    void getTeamCalendar_ShouldReturnApprovedLeavesFromSameDepartment() throws Exception {
+        // Arrange: Farklı departmanlar oluştur
+        Department itDepartment = departmentRepository.findByName("Test Department")
+                .orElseThrow();
+        
+        Department hrDepartment = new Department();
+        hrDepartment.setName("HR Department");
+        hrDepartment.setIsActive(true);
+        hrDepartment = departmentRepository.save(hrDepartment);
+        
+        // Aynı departmandan başka bir çalışan oluştur
+        Employee teamMember = new Employee();
+        teamMember.setFirstName("Team");
+        teamMember.setLastName("Member");
+        teamMember.setEmail("team.member@example.com");
+        teamMember.setJobTitle("Developer");
+        teamMember.setBirthDate(LocalDate.of(1992, 5, 15));
+        teamMember.setHireDate(LocalDate.now().minusYears(2));
+        teamMember.setDailyWorkHours(new BigDecimal("8.0"));
+        teamMember.setDepartment(itDepartment);
+        teamMember.setIsActive(true);
+        teamMember = employeeRepository.save(teamMember);
+        
+        // Team member için User oluştur
+        User teamMemberUser = new User();
+        teamMemberUser.setEmployee(teamMember);
+        teamMemberUser.setPasswordHash(passwordEncoder.encode("Password123!"));
+        teamMemberUser.setIsActive(true);
+        teamMemberUser.setFailedLoginAttempts(0);
+        Set<Role> employeeRoles = new HashSet<>();
+        employeeRoles.add(roleRepository.findByRoleName("EMPLOYEE").orElseThrow());
+        teamMemberUser.setRoles(employeeRoles);
+        userRepository.save(teamMemberUser);
+        
+        // Farklı departmandan çalışan oluştur
+        Employee otherDeptEmployee = new Employee();
+        otherDeptEmployee.setFirstName("Other");
+        otherDeptEmployee.setLastName("Dept");
+        otherDeptEmployee.setEmail("other.dept@example.com");
+        otherDeptEmployee.setJobTitle("HR Specialist");
+        otherDeptEmployee.setBirthDate(LocalDate.of(1990, 3, 20));
+        otherDeptEmployee.setHireDate(LocalDate.now().minusYears(1));
+        otherDeptEmployee.setDailyWorkHours(new BigDecimal("8.0"));
+        otherDeptEmployee.setDepartment(hrDepartment);
+        otherDeptEmployee.setIsActive(true);
+        otherDeptEmployee = employeeRepository.save(otherDeptEmployee);
+        
+        // Farklı departmandan çalışan için User oluştur
+        User otherDeptUser = new User();
+        otherDeptUser.setEmployee(otherDeptEmployee);
+        otherDeptUser.setPasswordHash(passwordEncoder.encode("Password123!"));
+        otherDeptUser.setIsActive(true);
+        otherDeptUser.setFailedLoginAttempts(0);
+        otherDeptUser.setRoles(employeeRoles);
+        userRepository.save(otherDeptUser);
+        
+        // Gelecekteki onaylanmış izin (aynı departman - gösterilmeli)
+        LocalDateTime futureStart = LocalDateTime.now().plusDays(5).withHour(9).withMinute(0);
+        LocalDateTime futureEnd = LocalDateTime.now().plusDays(7).withHour(17).withMinute(0);
+        LeaveRequest approvedFutureLeave = new LeaveRequest();
+        approvedFutureLeave.setEmployee(teamMember);
+        approvedFutureLeave.setLeaveType(annualLeaveType);
+        approvedFutureLeave.setRequestStatus(RequestStatus.APPROVED);
+        approvedFutureLeave.setStartDateTime(futureStart);
+        approvedFutureLeave.setEndDateTime(futureEnd);
+        approvedFutureLeave.setDurationHours(new BigDecimal("16.0"));
+        approvedFutureLeave.setReason("Gelecek izin");
+        approvedFutureLeave.setWorkflowNextApproverRole("NONE");
+        approvedFutureLeave = leaveRequestRepository.save(approvedFutureLeave);
+        
+        // Şu anda devam eden onaylanmış izin (aynı departman - gösterilmeli)
+        LocalDateTime currentStart = LocalDateTime.now().minusDays(1).withHour(9).withMinute(0);
+        LocalDateTime currentEnd = LocalDateTime.now().plusDays(1).withHour(17).withMinute(0);
+        LeaveRequest approvedCurrentLeave = new LeaveRequest();
+        approvedCurrentLeave.setEmployee(teamMember);
+        approvedCurrentLeave.setLeaveType(annualLeaveType);
+        approvedCurrentLeave.setRequestStatus(RequestStatus.APPROVED);
+        approvedCurrentLeave.setStartDateTime(currentStart);
+        approvedCurrentLeave.setEndDateTime(currentEnd);
+        approvedCurrentLeave.setDurationHours(new BigDecimal("16.0"));
+        approvedCurrentLeave.setReason("Devam eden izin");
+        approvedCurrentLeave.setWorkflowNextApproverRole("NONE");
+        approvedCurrentLeave = leaveRequestRepository.save(approvedCurrentLeave);
+        
+        // Geçmişteki onaylanmış izin (aynı departman - gösterilmemeli)
+        LocalDateTime pastStart = LocalDateTime.now().minusDays(10).withHour(9).withMinute(0);
+        LocalDateTime pastEnd = LocalDateTime.now().minusDays(8).withHour(17).withMinute(0);
+        LeaveRequest approvedPastLeave = new LeaveRequest();
+        approvedPastLeave.setEmployee(teamMember);
+        approvedPastLeave.setLeaveType(annualLeaveType);
+        approvedPastLeave.setRequestStatus(RequestStatus.APPROVED);
+        approvedPastLeave.setStartDateTime(pastStart);
+        approvedPastLeave.setEndDateTime(pastEnd);
+        approvedPastLeave.setDurationHours(new BigDecimal("16.0"));
+        approvedPastLeave.setReason("Geçmiş izin");
+        approvedPastLeave.setWorkflowNextApproverRole("NONE");
+        approvedPastLeave = leaveRequestRepository.save(approvedPastLeave);
+        
+        // Bekleyen izin (aynı departman - gösterilmemeli)
+        LeaveRequest pendingLeave = new LeaveRequest();
+        pendingLeave.setEmployee(teamMember);
+        pendingLeave.setLeaveType(annualLeaveType);
+        pendingLeave.setRequestStatus(RequestStatus.PENDING_APPROVAL);
+        pendingLeave.setStartDateTime(futureStart);
+        pendingLeave.setEndDateTime(futureEnd);
+        pendingLeave.setDurationHours(new BigDecimal("16.0"));
+        pendingLeave.setReason("Bekleyen izin");
+        pendingLeave.setWorkflowNextApproverRole("HR");
+        pendingLeave = leaveRequestRepository.save(pendingLeave);
+        
+        // Farklı departmandan onaylanmış izin (gösterilmemeli)
+        LeaveRequest otherDeptLeave = new LeaveRequest();
+        otherDeptLeave.setEmployee(otherDeptEmployee);
+        otherDeptLeave.setLeaveType(annualLeaveType);
+        otherDeptLeave.setRequestStatus(RequestStatus.APPROVED);
+        otherDeptLeave.setStartDateTime(futureStart);
+        otherDeptLeave.setEndDateTime(futureEnd);
+        otherDeptLeave.setDurationHours(new BigDecimal("16.0"));
+        otherDeptLeave.setReason("Farklı departman izni");
+        otherDeptLeave.setWorkflowNextApproverRole("NONE");
+        otherDeptLeave = leaveRequestRepository.save(otherDeptLeave);
+        
+        // Act & Assert
+        mockMvc.perform(get("/api/leaves/team-calendar")
+                        .header("Authorization", "Bearer " + employeeToken)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$.length()").value(2)) // Sadece gelecek ve devam eden onaylanmış izinler
+                .andExpect(jsonPath("$[?(@.employeeFullName == 'Team Member')]").exists())
+                .andExpect(jsonPath("$[?(@.departmentName == 'Test Department')]").exists())
+                .andExpect(jsonPath("$[?(@.leaveTypeName == 'Yıllık İzin')]").exists())
+                .andExpect(jsonPath("$[?(@.employeeFullName == 'Other Dept')]").doesNotExist()) // Farklı departman gösterilmemeli
+                .andExpect(jsonPath("$[?(@.status == 'PENDING_APPROVAL')]").doesNotExist()); // Bekleyen izinler gösterilmemeli
+    }
+
+    @Test
+    @DisplayName("GET /api/leaves/team-calendar - Departmanda onaylanmış izin yoksa boş liste döndürmeli")
+    void getTeamCalendar_NoApprovedLeaves_ShouldReturnEmptyList() throws Exception {
+        // Arrange: Mevcut izinleri temizle (setUp'da zaten temizleniyor ama emin olmak için)
+        leaveRequestRepository.deleteAll();
+        
+        // Act & Assert
+        mockMvc.perform(get("/api/leaves/team-calendar")
+                        .header("Authorization", "Bearer " + employeeToken)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    @DisplayName("GET /api/leaves/team-calendar - Unauthorized kullanıcı erişememeli")
+    void getTeamCalendar_Unauthorized_ShouldReturn401() throws Exception {
+        // Token olmadan istek yapıldığında Spring Security 403 (Forbidden) dönebilir
+        // Bu durumda hem 401 hem de 403 kabul edilebilir
+        mockMvc.perform(get("/api/leaves/team-calendar")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().is4xxClientError()); // 401 veya 403
+    }
+
+    @Test
+    @DisplayName("GET /api/leaves/team-calendar - DTO alanları doğru map edilmeli")
+    void getTeamCalendar_DTOFields_ShouldBeMappedCorrectly() throws Exception {
+        // Arrange: Onaylanmış bir izin oluştur
+        Employee teamMember = new Employee();
+        teamMember.setFirstName("Alice");
+        teamMember.setLastName("Johnson");
+        teamMember.setEmail("alice.johnson@example.com");
+        teamMember.setJobTitle("Senior Developer");
+        teamMember.setBirthDate(LocalDate.of(1988, 6, 10));
+        teamMember.setHireDate(LocalDate.now().minusYears(4));
+        teamMember.setDailyWorkHours(new BigDecimal("8.0"));
+        teamMember.setDepartment(testEmployee.getDepartment());
+        teamMember.setIsActive(true);
+        teamMember = employeeRepository.save(teamMember);
+        
+        // Gelecekteki bir tarih kullan (sorgu endDateTime >= şimdiki zaman kontrolü yapıyor)
+        LocalDateTime startDate = LocalDateTime.now().plusDays(5).withHour(9).withMinute(0);
+        LocalDateTime endDate = LocalDateTime.now().plusDays(5).withHour(17).withMinute(0);
+        BigDecimal duration = new BigDecimal("8.0");
+        
+        LeaveRequest leaveRequest = new LeaveRequest();
+        leaveRequest.setEmployee(teamMember);
+        leaveRequest.setLeaveType(excuseLeaveType);
+        leaveRequest.setRequestStatus(RequestStatus.APPROVED);
+        leaveRequest.setStartDateTime(startDate);
+        leaveRequest.setEndDateTime(endDate);
+        leaveRequest.setDurationHours(duration);
+        leaveRequest.setReason("Test izin");
+        leaveRequest.setWorkflowNextApproverRole("NONE");
+        leaveRequestRepository.save(leaveRequest);
+        
+        // Act & Assert
+        mockMvc.perform(get("/api/leaves/team-calendar")
+                        .header("Authorization", "Bearer " + employeeToken)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].employeeFullName").value("Alice Johnson"))
+                .andExpect(jsonPath("$[0].departmentName").value("Test Department"))
+                .andExpect(jsonPath("$[0].leaveTypeName").value("Mazeret İzni (Saatlik)"))
+                .andExpect(jsonPath("$[0].totalHours").value(8.0))
+                .andExpect(jsonPath("$[0].startDate").exists())
+                .andExpect(jsonPath("$[0].endDate").exists());
     }
 
     private String loginAndGetToken(String email, String password) throws Exception {
