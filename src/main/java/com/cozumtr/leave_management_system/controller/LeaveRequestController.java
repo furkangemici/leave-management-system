@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,6 +24,7 @@ public class LeaveRequestController {
     private final LeaveTypeService leaveTypeService;
 
     // --- KENDİ İZİN TALEPLERİMİ LİSTELEME ---
+    @PreAuthorize("hasRole('EMPLOYEE')")
     @GetMapping("/me")
     public ResponseEntity<List<LeaveRequestResponse>> getMyLeaveRequests() {
         List<LeaveRequestResponse> leaveRequests = leaveRequestService.getMyLeaveRequests();
@@ -30,6 +32,7 @@ public class LeaveRequestController {
     }
 
     // --- İZİN TALEBİ OLUŞTURMA ---
+    @PreAuthorize("hasRole('EMPLOYEE')")
     @PostMapping
     public ResponseEntity<LeaveRequestResponse> createLeaveRequest(@Valid @RequestBody CreateLeaveRequest request) {
         LeaveRequestResponse response = leaveRequestService.createLeaveRequest(request);
@@ -38,6 +41,8 @@ public class LeaveRequestController {
     }
 
     // ---  İZİN İPTAL ETME (Soft Delete) ---
+    // Ownership kontrolü service katmanında yapılıyor, burada sadece rol kontrolü
+    @PreAuthorize("hasRole('EMPLOYEE')")
     @DeleteMapping("/{id}")
     public ResponseEntity<MessageResponseDto> cancelLeaveRequest(@PathVariable Long id) {
         leaveRequestService.cancelLeaveRequest(id);
@@ -53,5 +58,25 @@ public class LeaveRequestController {
     public ResponseEntity<List<LeaveTypeResponse>> getAllLeaveTypes() {
         List<LeaveTypeResponse> leaveTypes = leaveTypeService.getAllActiveLeaveTypes();
         return ResponseEntity.ok(leaveTypes);
+    }
+
+    // --- İZİN TALEBİNİ ONAYLA ---
+    @PreAuthorize("hasAnyRole('HR', 'MANAGER', 'CEO')")
+    @PostMapping("/{id}/approve")
+    public ResponseEntity<LeaveRequestResponse> approveLeaveRequest(
+            @PathVariable Long id,
+            @RequestParam(required = false) String comments) {
+        LeaveRequestResponse response = leaveRequestService.approveLeaveRequest(id, comments);
+        return ResponseEntity.ok(response);
+    }
+
+    // --- İZİN TALEBİNİ REDDET ---
+    @PreAuthorize("hasAnyRole('HR', 'MANAGER', 'CEO')")
+    @PostMapping("/{id}/reject")
+    public ResponseEntity<LeaveRequestResponse> rejectLeaveRequest(
+            @PathVariable Long id,
+            @RequestParam(required = false) String comments) {
+        LeaveRequestResponse response = leaveRequestService.rejectLeaveRequest(id, comments);
+        return ResponseEntity.ok(response);
     }
 }

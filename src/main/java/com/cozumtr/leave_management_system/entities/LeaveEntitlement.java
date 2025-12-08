@@ -13,7 +13,7 @@ import java.math.BigDecimal;
 @Setter
 @ToString
 @EqualsAndHashCode(onlyExplicitlyIncluded = true, callSuper = false)
-@Check(constraints = "total_hours_entitled >= 0 AND hours_used >= 0")
+@Check(constraints = "total_hours_entitled >= 0 AND hours_used >= 0 AND carried_forward_hours >= 0")
 public class LeaveEntitlement extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -30,6 +30,10 @@ public class LeaveEntitlement extends BaseEntity {
     @Column(name = "hours_used", nullable = false, precision = 10, scale = 2)
     @Min(value = 0, message = "Kullanılan izin miktarı eksi olamaz")
     private BigDecimal hoursUsed = BigDecimal.ZERO;
+
+    @Column(name = "carried_forward_hours", nullable = false, precision = 10, scale = 2)
+    @Min(value = 0, message = "Aktarılan izin miktarı eksi olamaz")
+    private BigDecimal carriedForwardHours = BigDecimal.ZERO; 
 
     // --- İLİŞKİLER ---
     @ManyToOne(fetch = FetchType.LAZY)
