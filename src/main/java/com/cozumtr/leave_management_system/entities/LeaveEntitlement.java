@@ -20,7 +20,7 @@ public class LeaveEntitlement extends BaseEntity {
     @EqualsAndHashCode.Include
     private Long id;
 
-    @Column(name = "year", nullable = false) 
+    @Column(name = "year", nullable = false)
     private Integer year;
 
     @Column(name = "total_hours_entitled", nullable = false, precision = 10, scale = 2)

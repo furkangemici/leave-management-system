@@ -2,6 +2,7 @@ package com.cozumtr.leave_management_system.service;
 
 import com.cozumtr.leave_management_system.dto.request.CreateLeaveRequest;
 import com.cozumtr.leave_management_system.dto.response.LeaveRequestResponse;
+import com.cozumtr.leave_management_system.dto.response.TeamLeaveResponseDTO;
 import com.cozumtr.leave_management_system.entities.Employee;
 import com.cozumtr.leave_management_system.entities.LeaveApprovalHistory;
 import com.cozumtr.leave_management_system.entities.LeaveEntitlement;
@@ -341,6 +342,33 @@ public class LeaveRequestService {
                 .collect(Collectors.toList());
     }
 
+    // --- EKİP İZİN TAKİBİ (TEAM VISIBILITY) ---
+    /**
+     * Belirli bir çalışanın departmanındaki onaylanmış izinleri getirir.
+     * 
+     * @param employeeId Çalışan ID'si
+     * @return Departmandaki onaylanmış izinlerin listesi
+     * @throws EntityNotFoundException Eğer çalışan bulunamazsa
+     */
+    public List<TeamLeaveResponseDTO> getTeamApprovedLeaves(Long employeeId) {
+        // 1. Verilen employeeId ile Employee kaydını çek ve çalışanın 'departmentId' bilgisini al
+        Employee employee = employeeRepository.findById(employeeId)
+                .orElseThrow(() -> new EntityNotFoundException("Çalışan bulunamadı ID: " + employeeId));
+
+        Long departmentId = employee.getDepartment().getId();
+
+        // 2. Repository metodunu çağırırken departmentId ve LocalDateTime.now() parametrelerini kullan
+        List<LeaveRequest> approvedLeaves = leaveRequestRepository.findApprovedLeavesByDepartment(
+                departmentId,
+                LocalDateTime.now()
+        );
+
+        // 3. Dönüşleri TeamLeaveResponseDTO'ya manuel olarak map'le ve List<TeamLeaveResponseDTO> olarak döndür
+        return approvedLeaves.stream()
+                .map(this::mapToTeamLeaveResponse)
+                .collect(Collectors.toList());
+    }
+
     /**
      * İzin türüne göre bakiye kontrolü yapar.
      * 
@@ -505,6 +533,28 @@ public class LeaveRequestService {
                 .reason(leaveRequest.getReason())
                 .workflowNextApproverRole(leaveRequest.getWorkflowNextApproverRole())
                 .createdAt(leaveRequest.getCreatedAt())
+                .build();
+    }
+
+    /**
+     * LeaveRequest entity'sini TeamLeaveResponseDTO'ya map eder.
+     * 
+     * @param leaveRequest İzin talebi entity'si
+     * @return TeamLeaveResponseDTO
+     */
+    private TeamLeaveResponseDTO mapToTeamLeaveResponse(LeaveRequest leaveRequest) {
+        Employee employee = leaveRequest.getEmployee();
+        String employeeFullName = employee.getFirstName() + " " + employee.getLastName();
+        String departmentName = employee.getDepartment().getName();
+        String leaveTypeName = leaveRequest.getLeaveType().getName();
+
+        return TeamLeaveResponseDTO.builder()
+                .employeeFullName(employeeFullName)
+                .departmentName(departmentName)
+                .leaveTypeName(leaveTypeName)
+                .startDate(leaveRequest.getStartDateTime())
+                .endDate(leaveRequest.getEndDateTime())
+                .totalHours(leaveRequest.getDurationHours())
                 .build();
     }
 }

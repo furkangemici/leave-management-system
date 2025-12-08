@@ -92,4 +92,15 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
             @Param("year") int year,
             @Param("month") int month
     );
+
+    // 8. EKİP İZİN TAKİBİ (TEAM VISIBILITY)
+    // Belirli bir departmandaki onaylanmış izinleri getirir (güncel ve gelecekteki izinler için)
+    @Query("SELECT l FROM LeaveRequest l " +
+           "WHERE l.employee.department.id = :departmentId " +
+           "AND l.requestStatus = 'APPROVED' " +
+           "AND l.endDateTime >= :startDate")
+    List<LeaveRequest> findApprovedLeavesByDepartment(
+            @Param("departmentId") Long departmentId,
+            @Param("startDate") LocalDateTime startDate
+    );
 }
