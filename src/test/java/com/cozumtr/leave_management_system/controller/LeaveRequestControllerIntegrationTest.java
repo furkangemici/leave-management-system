@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.hamcrest.Matchers.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -60,6 +61,9 @@ class LeaveRequestControllerIntegrationTest {
     private LeaveRequestRepository leaveRequestRepository;
 
     @Autowired
+    private PublicHolidayRepository publicHolidayRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @Autowired
@@ -80,6 +84,7 @@ class LeaveRequestControllerIntegrationTest {
         // Clean up
         leaveRequestRepository.deleteAll();
         leaveEntitlementRepository.deleteAll();
+        publicHolidayRepository.deleteAll();
         userRepository.deleteAll();
         employeeRepository.deleteAll();
         leaveTypeRepository.deleteAll();
@@ -727,6 +732,215 @@ class LeaveRequestControllerIntegrationTest {
                 .andExpect(jsonPath("$[0].totalHours").value(8.0))
                 .andExpect(jsonPath("$[0].startDate").exists())
                 .andExpect(jsonPath("$[0].endDate").exists());
+    }
+
+    // ========== TATİL HESAPLAMA ENTEGRASYON TESTLERİ ==========
+
+    @Test
+    @DisplayName("POST /api/leaves - Hafta sonu içeren izin talebi - hafta sonları düşülmeli")
+    void createLeaveRequest_WithWeekend_ShouldExcludeWeekends() throws Exception {
+        // Given: Cuma'dan Pazartesi'ye izin (Cumartesi-Pazar hafta sonu)
+        // 2026-01-09 Cuma, 2026-01-12 Pazartesi
+        LocalDate friday = LocalDate.of(2026, 1, 9); // Cuma
+        LocalDate monday = LocalDate.of(2026, 1, 12); // Pazartesi
+        LocalDateTime startDate = friday.atTime(9, 0);
+        LocalDateTime endDate = monday.atTime(17, 0);
+
+        String requestBody = String.format("""
+                {
+                  "leaveTypeId": %d,
+                  "startDate": "%s",
+                  "endDate": "%s",
+                  "reason": "Hafta sonu testi"
+                }
+                """, annualLeaveType.getId(), startDate, endDate);
+
+        String response = mockMvc.perform(post("/api/leaves")
+                        .header("Authorization", "Bearer " + employeeToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody)
+                        .with(csrf()))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> responseMap = objectMapper.readValue(response, Map.class);
+        
+        // Beklenen: Cuma (8 saat) + Pazartesi (8 saat) = 16 saat
+        // Cumartesi ve Pazar düşülmeli
+        BigDecimal durationHours = new BigDecimal(responseMap.get("duration").toString());
+        assertEquals(0, durationHours.compareTo(new BigDecimal("16.0")), 
+                "Hafta sonu düşülmeli: Beklenen 16 saat, Gerçek " + durationHours + " saat");
+    }
+
+    @Test
+    @DisplayName("POST /api/leaves - Resmi tatil içeren izin talebi - tam gün tatiller düşülmeli")
+    void createLeaveRequest_WithPublicHoliday_ShouldExcludeHolidays() throws Exception {
+        // Given: Resmi tatil günü oluştur
+        LocalDate holidayDate = LocalDate.of(2026, 1, 14); // Çarşamba
+        PublicHoliday holiday = new PublicHoliday();
+        holiday.setDate(holidayDate);
+        holiday.setName("Test Tatili");
+        holiday.setHalfDay(false); // Tam gün tatil
+        publicHolidayRepository.save(holiday);
+
+        // Salı'dan Perşembe'ye izin (Çarşamba resmi tatil)
+        LocalDate tuesday = LocalDate.of(2026, 1, 13); // Salı
+        LocalDate thursday = LocalDate.of(2026, 1, 15); // Perşembe
+        LocalDateTime startDate = tuesday.atTime(9, 0);
+        LocalDateTime endDate = thursday.atTime(17, 0);
+
+        String requestBody = String.format("""
+                {
+                  "leaveTypeId": %d,
+                  "startDate": "%s",
+                  "endDate": "%s",
+                  "reason": "Tatil testi"
+                }
+                """, annualLeaveType.getId(), startDate, endDate);
+
+        String response = mockMvc.perform(post("/api/leaves")
+                        .header("Authorization", "Bearer " + employeeToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody)
+                        .with(csrf()))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> responseMap = objectMapper.readValue(response, Map.class);
+        
+        // Beklenen: Salı (8 saat) + Perşembe (8 saat) = 16 saat
+        // Çarşamba (resmi tatil) düşülmeli
+        BigDecimal durationHours = new BigDecimal(responseMap.get("duration").toString());
+        assertEquals(0, durationHours.compareTo(new BigDecimal("16.0")), 
+                "Resmi tatil düşülmeli: Beklenen 16 saat, Gerçek " + durationHours + " saat");
+    }
+
+    @Test
+    @DisplayName("POST /api/leaves - Yarım gün tatil (arife) içeren izin talebi - yarım gün sayılmalı")
+    void createLeaveRequest_WithHalfDayHoliday_ShouldCountHalfDay() throws Exception {
+        // Given: Yarım gün tatil (arife) oluştur
+        LocalDate arifeDate = LocalDate.of(2026, 1, 14); // Çarşamba
+        PublicHoliday arife = new PublicHoliday();
+        arife.setDate(arifeDate);
+        arife.setName("Arife Günü");
+        arife.setHalfDay(true); // Yarım gün tatil
+        publicHolidayRepository.save(arife);
+
+        // Çarşamba günü izin (yarım gün tatil)
+        LocalDateTime startDate = arifeDate.atTime(9, 0);
+        LocalDateTime endDate = arifeDate.atTime(17, 0);
+
+        String requestBody = String.format("""
+                {
+                  "leaveTypeId": %d,
+                  "startDate": "%s",
+                  "endDate": "%s",
+                  "reason": "Arife testi"
+                }
+                """, annualLeaveType.getId(), startDate, endDate);
+
+        String response = mockMvc.perform(post("/api/leaves")
+                        .header("Authorization", "Bearer " + employeeToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody)
+                        .with(csrf()))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> responseMap = objectMapper.readValue(response, Map.class);
+        
+        // Beklenen: Yarım gün tatil = 0.5 * 8 saat = 4 saat
+        BigDecimal durationHours = new BigDecimal(responseMap.get("duration").toString());
+        assertEquals(0, durationHours.compareTo(new BigDecimal("4.0")), 
+                "Yarım gün tatil yarım gün sayılmalı: Beklenen 4 saat, Gerçek " + durationHours + " saat");
+    }
+
+    @Test
+    @DisplayName("POST /api/leaves - Karmaşık senaryo: hafta sonu + tatil + normal günler")
+    void createLeaveRequest_ComplexScenario_WeekendAndHoliday_ShouldCalculateCorrectly() throws Exception {
+        // Given: Perşembe'den Salı'ya izin
+        // Perşembe (normal), Cuma (normal), Cumartesi (hafta sonu), Pazar (hafta sonu), 
+        // Pazartesi (normal), Salı (resmi tatil)
+        LocalDate thursday = LocalDate.of(2026, 1, 8); // Perşembe
+        LocalDate tuesday = LocalDate.of(2026, 1, 13); // Salı
+
+        // Salı günü resmi tatil oluştur
+        PublicHoliday holiday = new PublicHoliday();
+        holiday.setDate(tuesday);
+        holiday.setName("Test Tatili");
+        holiday.setHalfDay(false); // Tam gün tatil
+        publicHolidayRepository.save(holiday);
+
+        LocalDateTime startDate = thursday.atTime(9, 0);
+        LocalDateTime endDate = tuesday.atTime(17, 0);
+
+        String requestBody = String.format("""
+                {
+                  "leaveTypeId": %d,
+                  "startDate": "%s",
+                  "endDate": "%s",
+                  "reason": "Karmaşık senaryo testi"
+                }
+                """, annualLeaveType.getId(), startDate, endDate);
+
+        String response = mockMvc.perform(post("/api/leaves")
+                        .header("Authorization", "Bearer " + employeeToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody)
+                        .with(csrf()))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> responseMap = objectMapper.readValue(response, Map.class);
+        
+        // Beklenen: Perşembe (8) + Cuma (8) + Cumartesi (0) + Pazar (0) + Pazartesi (8) + Salı (0 - tatil) = 24 saat
+        BigDecimal durationHours = new BigDecimal(responseMap.get("duration").toString());
+        assertEquals(0, durationHours.compareTo(new BigDecimal("24.0")), 
+                "Karmaşık senaryo: Beklenen 24 saat (Perşembe+Cuma+Pazartesi), Gerçek " + durationHours + " saat");
+    }
+
+    @Test
+    @DisplayName("POST /api/leaves - Sadece resmi tatil gününde izin talebi - 0 saat olmalı")
+    void createLeaveRequest_OnlyHoliday_ShouldReturnZeroHours() throws Exception {
+        // Given: Sadece resmi tatil gününde izin
+        LocalDate holidayDate = LocalDate.of(2026, 1, 14); // Çarşamba
+        PublicHoliday holiday = new PublicHoliday();
+        holiday.setDate(holidayDate);
+        holiday.setName("Test Tatili");
+        holiday.setHalfDay(false); // Tam gün tatil
+        publicHolidayRepository.save(holiday);
+
+        LocalDateTime startDate = holidayDate.atTime(9, 0);
+        LocalDateTime endDate = holidayDate.atTime(17, 0);
+
+        String requestBody = String.format("""
+                {
+                  "leaveTypeId": %d,
+                  "startDate": "%s",
+                  "endDate": "%s",
+                  "reason": "Sadece tatil günü"
+                }
+                """, annualLeaveType.getId(), startDate, endDate);
+
+        mockMvc.perform(post("/api/leaves")
+                        .header("Authorization", "Bearer " + employeeToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody)
+                        .with(csrf()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(containsString("Hesaplanabilir süre bulunamadı")));
     }
 
     private String loginAndGetToken(String email, String password) throws Exception {

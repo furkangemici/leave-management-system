@@ -3,11 +3,13 @@ package com.cozumtr.leave_management_system.service;
 import com.cozumtr.leave_management_system.dto.request.CreateLeaveRequest;
 import com.cozumtr.leave_management_system.entities.Employee;
 import com.cozumtr.leave_management_system.entities.LeaveType;
+import com.cozumtr.leave_management_system.enums.RequestUnit;
 import com.cozumtr.leave_management_system.exception.BusinessException;
 import com.cozumtr.leave_management_system.repository.EmployeeRepository;
 import com.cozumtr.leave_management_system.repository.LeaveEntitlementRepository;
 import com.cozumtr.leave_management_system.repository.LeaveRequestRepository;
 import com.cozumtr.leave_management_system.repository.LeaveTypeRepository;
+import com.cozumtr.leave_management_system.repository.PublicHolidayRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -43,6 +45,8 @@ class LeaveRequestServiceExcuseLeaveTest {
     @Mock
     private LeaveEntitlementRepository leaveEntitlementRepository;
     @Mock
+    private PublicHolidayRepository publicHolidayRepository;
+    @Mock
     private SecurityContext securityContext;
     @Mock
     private Authentication authentication;
@@ -74,6 +78,7 @@ class LeaveRequestServiceExcuseLeaveTest {
         excuseLeaveType.setName("Mazeret İzni (Saatlik)");
         excuseLeaveType.setIsActive(true);
         excuseLeaveType.setDeductsFromAnnual(false);
+        excuseLeaveType.setRequestUnit(RequestUnit.HOUR); // Saatlik izin
         excuseLeaveType.setWorkflowDefinition("MANAGER");
 
         // Test Request
@@ -92,9 +97,9 @@ class LeaveRequestServiceExcuseLeaveTest {
                 .thenReturn(Optional.of(testEmployee));
         when(leaveTypeRepository.findById(2L))
                 .thenReturn(Optional.of(excuseLeaveType));
-        when(leaveCalculationService.calculateDuration(
-                any(LocalDate.class), any(LocalDate.class)))
-                .thenReturn(new BigDecimal("2.0"));
+        // Saatlik izinler için PublicHolidayRepository mock'u (hafta sonu ve tatil kontrolü)
+        when(publicHolidayRepository.existsByDate(any(LocalDate.class)))
+                .thenReturn(false); // Tatil değil
         when(leaveRequestRepository.existsByEmployeeAndDateRangeOverlap(
                 anyLong(), any(LocalDateTime.class), any(LocalDateTime.class), anyList()))
                 .thenReturn(false);
@@ -124,9 +129,9 @@ class LeaveRequestServiceExcuseLeaveTest {
                 .thenReturn(Optional.of(testEmployee));
         when(leaveTypeRepository.findById(2L))
                 .thenReturn(Optional.of(excuseLeaveType));
-        when(leaveCalculationService.calculateDuration(
-                any(LocalDate.class), any(LocalDate.class)))
-                .thenReturn(new BigDecimal("3.0"));
+        // Saatlik izinler için PublicHolidayRepository mock'u (hafta sonu ve tatil kontrolü)
+        when(publicHolidayRepository.existsByDate(any(LocalDate.class)))
+                .thenReturn(false); // Tatil değil
         when(leaveRequestRepository.existsByEmployeeAndDateRangeOverlap(
                 anyLong(), any(LocalDateTime.class), any(LocalDateTime.class), anyList()))
                 .thenReturn(false);
@@ -148,9 +153,9 @@ class LeaveRequestServiceExcuseLeaveTest {
                 .thenReturn(Optional.of(testEmployee));
         when(leaveTypeRepository.findById(2L))
                 .thenReturn(Optional.of(excuseLeaveType));
-        when(leaveCalculationService.calculateDuration(
-                any(LocalDate.class), any(LocalDate.class)))
-                .thenReturn(new BigDecimal("2.0"));
+        // Saatlik izinler için PublicHolidayRepository mock'u (hafta sonu ve tatil kontrolü)
+        when(publicHolidayRepository.existsByDate(any(LocalDate.class)))
+                .thenReturn(false); // Tatil değil
         when(leaveRequestRepository.existsByEmployeeAndDateRangeOverlap(
                 anyLong(), any(LocalDateTime.class), any(LocalDateTime.class), anyList()))
                 .thenReturn(false);
@@ -176,9 +181,9 @@ class LeaveRequestServiceExcuseLeaveTest {
                 .thenReturn(Optional.of(testEmployee));
         when(leaveTypeRepository.findById(2L))
                 .thenReturn(Optional.of(excuseLeaveType));
-        when(leaveCalculationService.calculateDuration(
-                any(LocalDate.class), any(LocalDate.class)))
-                .thenReturn(new BigDecimal("2.0"));
+        // Saatlik izinler için PublicHolidayRepository mock'u (hafta sonu ve tatil kontrolü)
+        when(publicHolidayRepository.existsByDate(any(LocalDate.class)))
+                .thenReturn(false); // Tatil değil
         when(leaveRequestRepository.existsByEmployeeAndDateRangeOverlap(
                 anyLong(), any(LocalDateTime.class), any(LocalDateTime.class), anyList()))
                 .thenReturn(false);
@@ -206,9 +211,9 @@ class LeaveRequestServiceExcuseLeaveTest {
                 .thenReturn(Optional.of(testEmployee));
         when(leaveTypeRepository.findById(2L))
                 .thenReturn(Optional.of(excuseLeaveType));
-        when(leaveCalculationService.calculateDuration(
-                any(LocalDate.class), any(LocalDate.class)))
-                .thenReturn(new BigDecimal("2.0"));
+        // Saatlik izinler için PublicHolidayRepository mock'u (hafta sonu ve tatil kontrolü)
+        when(publicHolidayRepository.existsByDate(any(LocalDate.class)))
+                .thenReturn(false); // Tatil değil
         when(leaveRequestRepository.existsByEmployeeAndDateRangeOverlap(
                 anyLong(), any(LocalDateTime.class), any(LocalDateTime.class), anyList()))
                 .thenReturn(false);
@@ -236,9 +241,9 @@ class LeaveRequestServiceExcuseLeaveTest {
                 .thenReturn(Optional.of(testEmployee));
         when(leaveTypeRepository.findById(2L))
                 .thenReturn(Optional.of(excuseLeaveType));
-        when(leaveCalculationService.calculateDuration(
-                any(LocalDate.class), any(LocalDate.class)))
-                .thenReturn(new BigDecimal("2.0"));
+        // Saatlik izinler için PublicHolidayRepository mock'u (hafta sonu ve tatil kontrolü)
+        when(publicHolidayRepository.existsByDate(any(LocalDate.class)))
+                .thenReturn(false); // Tatil değil
         when(leaveRequestRepository.existsByEmployeeAndDateRangeOverlap(
                 anyLong(), any(LocalDateTime.class), any(LocalDateTime.class), anyList()))
                 .thenReturn(false);
