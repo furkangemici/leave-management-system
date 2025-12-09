@@ -16,6 +16,8 @@ public class SprintResponse {
     private String name;
     private LocalDate startDate;
     private LocalDate endDate;
+    private Integer durationWeeks;
     private String departmentName;
+    private Long departmentId;
 }
 

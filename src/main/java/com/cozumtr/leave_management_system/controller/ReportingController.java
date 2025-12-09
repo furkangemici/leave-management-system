@@ -92,7 +92,9 @@ public class ReportingController {
                         .name(sprint.getName())
                         .startDate(sprint.getStartDate())
                         .endDate(sprint.getEndDate())
+                        .durationWeeks(sprint.getDurationWeeks())
                         .departmentName(sprint.getDepartment() != null ? sprint.getDepartment().getName() : null)
+                        .departmentId(sprint.getDepartment() != null ? sprint.getDepartment().getId() : null)
                         .build())
                 .collect(Collectors.toList());
         return ResponseEntity.ok(sprintResponses);

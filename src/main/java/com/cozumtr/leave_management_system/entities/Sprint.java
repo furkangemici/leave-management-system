@@ -27,7 +27,8 @@ public class Sprint extends BaseEntity {
     @Column(name = "end_date", nullable = false)
     private LocalDate endDate;
 
-    // --- İLİŞKİ ---
+    @Column(name = "duration_weeks", nullable = true)
+    private Integer durationWeeks; 
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "department_id")
