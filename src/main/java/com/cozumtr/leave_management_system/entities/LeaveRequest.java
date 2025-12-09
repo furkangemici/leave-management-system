@@ -8,6 +8,8 @@ import org.hibernate.annotations.Check;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "leave_requests")
@@ -44,6 +46,10 @@ public class LeaveRequest extends BaseEntity {
 
     @Column(name = "workflow_next_approver_role", nullable = false)
     private String workflowNextApproverRole;
+
+    @OneToMany(mappedBy = "leaveRequest", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = false)
+    @ToString.Exclude
+    private List<LeaveApprovalHistory> approvalHistories = new ArrayList<>();
 
     // --- TARİH VE SÜRE ---
 

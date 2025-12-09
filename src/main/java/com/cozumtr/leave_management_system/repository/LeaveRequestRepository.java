@@ -20,6 +20,47 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
     // 2. Yönetici ekranı için: Duruma göre filtreleme (Örn: Sadece Bekleyenler)
     List<LeaveRequest> findByRequestStatus(RequestStatus status);
 
+    @Query("""
+            SELECT DISTINCT lr FROM LeaveRequest lr
+            LEFT JOIN FETCH lr.leaveType lt
+            LEFT JOIN FETCH lr.employee e
+            LEFT JOIN FETCH e.department d
+            LEFT JOIN FETCH lr.approvalHistories ah
+            LEFT JOIN FETCH ah.approver app
+            LEFT JOIN FETCH app.department appDept
+            WHERE lr.workflowNextApproverRole IN :roles
+              AND lr.requestStatus NOT IN ('REJECTED', 'CANCELLED', 'APPROVED')
+            """)
+    List<LeaveRequest> findByWorkflowNextApproverRoleIn(@Param("roles") List<String> roles);
+
+    @Query("""
+            SELECT DISTINCT lr FROM LeaveRequest lr
+            LEFT JOIN FETCH lr.leaveType lt
+            LEFT JOIN FETCH lr.employee e
+            LEFT JOIN FETCH e.department d
+            LEFT JOIN FETCH lr.approvalHistories ah
+            LEFT JOIN FETCH ah.approver app
+            LEFT JOIN FETCH app.department appDept
+            WHERE lr.workflowNextApproverRole IN :roles
+              AND lr.requestStatus NOT IN ('REJECTED', 'CANCELLED', 'APPROVED')
+              AND e.department.id = :departmentId
+            """)
+    List<LeaveRequest> findByWorkflowNextApproverRoleInAndDepartmentId(
+            @Param("roles") List<String> roles,
+            @Param("departmentId") Long departmentId
+    );
+
+    @Query("""
+            SELECT lr FROM LeaveRequest lr
+            JOIN FETCH lr.employee e
+            JOIN FETCH e.department d
+            JOIN FETCH lr.leaveType lt
+            WHERE lr.requestStatus = 'APPROVED'
+              AND lr.startDateTime <= :now
+              AND lr.endDateTime >= :now
+            """)
+    List<LeaveRequest> findCurrentlyOnLeave(@Param("now") LocalDateTime now);
+
     // 3. SPRINT ÇAKIŞMA RAPORU
     // Belirli bir tarih aralığına (Sprint) denk gelen ONAYLI izinleri bulur.
     @Query("SELECT l FROM LeaveRequest l WHERE " +
