@@ -6,6 +6,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface PublicHolidayRepository extends JpaRepository<PublicHoliday, Long> {
@@ -26,4 +27,12 @@ public interface PublicHolidayRepository extends JpaRepository<PublicHoliday, Lo
      * @return Tarih resmi tatil ise true, değilse false
      */
     boolean existsByDate(LocalDate date);
+
+    /**
+     * Belirli bir tarihe göre resmi tatil getirir.
+     *
+     * @param date Tarih
+     * @return Resmi tatil (varsa)
+     */
+    Optional<PublicHoliday> findByDate(LocalDate date);
 }
