@@ -4,6 +4,8 @@ import com.cozumtr.leave_management_system.dto.request.CreateLeaveRequest;
 import com.cozumtr.leave_management_system.dto.response.LeaveRequestResponse;
 import com.cozumtr.leave_management_system.dto.response.TeamLeaveResponseDTO;
 import com.cozumtr.leave_management_system.dto.response.LeaveApprovalHistoryResponse;
+import com.cozumtr.leave_management_system.dto.response.SprintOverlapReportDTO;
+import com.cozumtr.leave_management_system.dto.response.OverlappingLeaveDetailDTO;
 import com.cozumtr.leave_management_system.entities.Employee;
 import com.cozumtr.leave_management_system.entities.LeaveApprovalHistory;
 import com.cozumtr.leave_management_system.entities.LeaveEntitlement;
@@ -713,5 +715,73 @@ public class LeaveRequestService {
         return leaves.stream()
                 .map(this::mapToTeamLeaveResponse)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Sprint çakışma raporu oluşturur.
+     * Verilen sprint tarih aralığı ile çakışan onaylanmış izinleri bulur ve
+     * toplam kapasite kaybını (saat olarak) hesaplar.
+     *
+     * @param sprintStart Sprint başlangıç tarihi
+     * @param sprintEnd Sprint bitiş tarihi
+     * @return SprintOverlapReportDTO
+     */
+    @Transactional(readOnly = true)
+    public SprintOverlapReportDTO generateSprintOverlapReport(LocalDateTime sprintStart, LocalDateTime sprintEnd) {
+        // 1. Çakışan onaylı izinleri bul
+        List<LeaveRequest> overlappingLeaves = leaveRequestRepository.findOverlappingApprovedLeaves(
+                sprintStart, sprintEnd
+        );
+
+        // 2. Toplam kayıp saati ve detay listesini hesapla
+        List<OverlappingLeaveDetailDTO> detailList = overlappingLeaves.stream()
+                .map(leaveRequest -> {
+                    // a. Çakışma aralığını belirle (MAX ve MIN tarih karşılaştırması)
+                    // Gerçek çakışma başlangıcı: İzin başlangıcı ve sprint başlangıcından daha GEÇ olan (MAX)
+                    // Mantık: İki tarihten hangisi daha geç ise o kullanılır
+                    // Örnek: İzin 5 Ocak, Sprint 10 Ocak → MAX(5 Ocak, 10 Ocak) = 10 Ocak
+                    LocalDateTime overlapStart = leaveRequest.getStartDateTime().isAfter(sprintStart) 
+                            ? leaveRequest.getStartDateTime()  // İzin daha geç başlıyorsa izin başlangıcı
+                            : sprintStart;                      // Sprint daha geç başlıyorsa sprint başlangıcı
+                    
+                    // Gerçek çakışma bitişi: İzin bitişi ve sprint bitişinden daha ERKEN olan (MIN)
+                    // Mantık: İki tarihten hangisi daha erken ise o kullanılır
+                    // Örnek: İzin 25 Ocak, Sprint 20 Ocak → MIN(25 Ocak, 20 Ocak) = 20 Ocak
+                    LocalDateTime overlapEnd = leaveRequest.getEndDateTime().isBefore(sprintEnd) 
+                            ? leaveRequest.getEndDateTime()    // İzin daha erken bitiyorsa izin bitişi
+                            : sprintEnd;                        // Sprint daha erken bitiyorsa sprint bitişi
+
+                    // b. Çakışma aralığı için net çalışma saatini hesapla
+                    Employee employee = leaveRequest.getEmployee();
+                    BigDecimal overlappingHours = leaveCalculationService.calculateDuration(
+                            overlapStart.toLocalDate(),
+                            overlapEnd.toLocalDate(),
+                            employee.getDailyWorkHours()
+                    );
+
+                    // c. DTO oluştur
+                    String employeeFullName = employee.getFirstName() + " " + employee.getLastName();
+                    String leaveTypeName = leaveRequest.getLeaveType().getName();
+
+                    return OverlappingLeaveDetailDTO.builder()
+                            .employeeFullName(employeeFullName)
+                            .leaveTypeName(leaveTypeName)
+                            .leaveStartDate(leaveRequest.getStartDateTime())
+                            .leaveEndDate(leaveRequest.getEndDateTime())
+                            .overlappingHours(overlappingHours)
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        // 3. Toplam kayıp saatini hesapla
+        BigDecimal totalLossHours = detailList.stream()
+                .map(OverlappingLeaveDetailDTO::getOverlappingHours)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // 4. Rapor DTO'sunu oluştur ve döndür
+        return SprintOverlapReportDTO.builder()
+                .totalLossHours(totalLossHours)
+                .overlappingLeaves(detailList)
+                .build();
     }
 }

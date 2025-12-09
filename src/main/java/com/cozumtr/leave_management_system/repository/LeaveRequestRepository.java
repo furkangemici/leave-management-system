@@ -61,19 +61,7 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
             """)
     List<LeaveRequest> findCurrentlyOnLeave(@Param("now") LocalDateTime now);
 
-    // 3. SPRINT ÇAKIŞMA RAPORU
-    // Belirli bir tarih aralığına (Sprint) denk gelen ONAYLI izinleri bulur.
-    @Query("SELECT l FROM LeaveRequest l WHERE " +
-            "l.employee.id = :employeeId " +
-            "AND l.requestStatus = 'APPROVED' " +
-            "AND (l.startDateTime < :sprintEnd AND l.endDateTime > :sprintStart)")
-    List<LeaveRequest> findLeavesInSprint(
-            @Param("employeeId") Long employeeId,
-            @Param("sprintStart") LocalDateTime sprintStart,
-            @Param("sprintEnd") LocalDateTime sprintEnd
-    );
-
-    // 4. YENİ İZİN İSTERKEN ÇAKIŞMA KONTROLÜ (KRİTİK) [cite: 512, 545]
+    // 3. YENİ İZİN İSTERKEN ÇAKIŞMA KONTROLÜ (KRİTİK) 
     // Mantık: (YeniBaslangic < EskiBitis) VE (YeniBitis > EskiBaslangic) ise çakışma vardır.
     // İyileştirme: Durumları elle yazmak yerine parametre olarak alıyoruz (:excludedStatuses).
     @Query("SELECT CASE WHEN COUNT(l) > 0 THEN true ELSE false END " +
@@ -88,7 +76,7 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
             @Param("excludedStatuses") List<RequestStatus> excludedStatuses
     );
 
-    // 5. İZİN TÜRÜNE GÖRE AYLIK KULLANIM HESAPLAMA
+    // 4. İZİN TÜRÜNE GÖRE AYLIK KULLANIM HESAPLAMA
     // Belirli bir ay için onaylı izinlerin toplam süresini hesaplar (saat cinsinden)
     @Query("SELECT COALESCE(SUM(l.durationHours), 0) " +
            "FROM LeaveRequest l " +
@@ -104,7 +92,7 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
             @Param("month") int month
     );
 
-    // 6. İZİN TÜRÜNE GÖRE YILLIK KULLANIM HESAPLAMA
+    // 5. İZİN TÜRÜNE GÖRE YILLIK KULLANIM HESAPLAMA
     // Belirli bir yıl için onaylı izinlerin toplam süresini hesaplar (saat cinsinden)
     @Query("SELECT COALESCE(SUM(l.durationHours), 0) " +
            "FROM LeaveRequest l " +
@@ -118,7 +106,7 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
             @Param("year") int year
     );
 
-    // 7. İZİN TÜRÜNE GÖRE AYLIK KULLANIM SAYISI
+    // 6. İZİN TÜRÜNE GÖRE AYLIK KULLANIM SAYISI
     // Belirli bir ay için onaylı mazeret izinlerinin sayısını hesaplar (ayda kaç kere alındı)
     @Query("SELECT COUNT(l) " +
            "FROM LeaveRequest l " +
@@ -134,7 +122,7 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
             @Param("month") int month
     );
 
-    // 8. EKİP İZİN TAKİBİ (TEAM VISIBILITY)
+    // 7. EKİP İZİN TAKİBİ (TEAM VISIBILITY)
     // Belirli bir departmandaki onaylanmış izinleri getirir (güncel ve gelecekteki izinler için)
     @Query("SELECT l FROM LeaveRequest l " +
            "WHERE l.employee.department.id = :departmentId " +
@@ -143,5 +131,20 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
     List<LeaveRequest> findApprovedLeavesByDepartment(
             @Param("departmentId") Long departmentId,
             @Param("startDate") LocalDateTime startDate
+    );
+
+    // 8. SPRINT ÇAKIŞMA RAPORU - Çakışan Onaylı İzinleri Bulma
+    // Çakışma koşulu: LeaveRequest.endDateTime >= sprintStart AND LeaveRequest.startDateTime <= sprintEnd
+    @Query("""
+            SELECT l FROM LeaveRequest l
+            JOIN FETCH l.employee e
+            JOIN FETCH l.leaveType lt
+            WHERE l.requestStatus = 'APPROVED'
+              AND l.endDateTime >= :sprintStart
+              AND l.startDateTime <= :sprintEnd
+            """)
+    List<LeaveRequest> findOverlappingApprovedLeaves(
+            @Param("sprintStart") LocalDateTime sprintStart,
+            @Param("sprintEnd") LocalDateTime sprintEnd
     );
 }
