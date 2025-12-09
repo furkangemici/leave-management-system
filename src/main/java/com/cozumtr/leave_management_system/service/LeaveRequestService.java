@@ -9,6 +9,8 @@ import com.cozumtr.leave_management_system.entities.LeaveApprovalHistory;
 import com.cozumtr.leave_management_system.entities.LeaveEntitlement;
 import com.cozumtr.leave_management_system.entities.LeaveRequest;
 import com.cozumtr.leave_management_system.entities.LeaveType;
+import com.cozumtr.leave_management_system.dto.response.ApprovalHistoryDTO;
+import com.cozumtr.leave_management_system.dto.response.ManagerLeaveResponseDTO;
 import com.cozumtr.leave_management_system.enums.RequestStatus;
 import com.cozumtr.leave_management_system.exception.BusinessException;
 import com.cozumtr.leave_management_system.repository.EmployeeRepository;
@@ -28,6 +30,7 @@ import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.Set;
@@ -181,6 +184,7 @@ public class LeaveRequestService {
 
         // 6. İptal Et (Veritabanından silmiyoruz, durumunu güncelliyoruz -> Soft Delete mantığı)
         request.setRequestStatus(RequestStatus.CANCELLED);
+        request.setWorkflowNextApproverRole("");
         leaveRequestRepository.save(request);
     }
 
@@ -336,6 +340,7 @@ public class LeaveRequestService {
 
         // 5. Reddet
         leaveRequest.setRequestStatus(RequestStatus.REJECTED);
+        leaveRequest.setWorkflowNextApproverRole("");
 
         // 6. Red geçmişi kaydet
         saveApprovalHistory(leaveRequest, approver, RequestStatus.REJECTED, comments);
@@ -398,6 +403,50 @@ public class LeaveRequestService {
         // 3. Dönüşleri TeamLeaveResponseDTO'ya manuel olarak map'le ve List<TeamLeaveResponseDTO> olarak döndür
         return approvedLeaves.stream()
                 .map(this::mapToTeamLeaveResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<ManagerLeaveResponseDTO> getManagerDashboardRequests() {
+        String currentEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        com.cozumtr.leave_management_system.entities.User currentUser = userRepository.findByEmployeeEmail(currentEmail)
+                .orElseThrow(() -> new EntityNotFoundException("Kullanıcı bulunamadı: " + currentEmail));
+
+        Employee currentEmployee = currentUser.getEmployee();
+
+        List<String> approverRoles = currentUser.getRoles().stream()
+                .map(role -> role.getRoleName())
+                .filter(roleName -> roleName.equals("MANAGER") || roleName.equals("HR") || roleName.equals("CEO"))
+                .toList();
+
+        if (approverRoles.isEmpty()) {
+            throw new BusinessException("Bu ekranı görüntüleme yetkiniz yok.");
+        }
+
+        List<LeaveRequest> leaveRequests;
+        if (approverRoles.contains("HR") || approverRoles.contains("CEO")) {
+            leaveRequests = leaveRequestRepository.findByWorkflowNextApproverRoleIn(approverRoles);
+        } else {
+            if (currentEmployee == null || currentEmployee.getDepartment() == null) {
+                throw new BusinessException("Departman bilgisi bulunamadı.");
+            }
+            leaveRequests = leaveRequestRepository.findByWorkflowNextApproverRoleInAndDepartmentId(
+                    approverRoles,
+                    currentEmployee.getDepartment().getId()
+            );
+        }
+
+        Set<RequestStatus> excludedStatuses = Set.of(
+                RequestStatus.REJECTED,
+                RequestStatus.CANCELLED,
+                RequestStatus.APPROVED
+        );
+
+        return leaveRequests.stream()
+                .filter(lr -> lr.getRequestStatus() == null || !excludedStatuses.contains(lr.getRequestStatus()))
+                .sorted(Comparator.comparing(LeaveRequest::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder())))
+                .map(this::mapToManagerResponse)
                 .collect(Collectors.toList());
     }
 
@@ -590,6 +639,33 @@ public class LeaveRequestService {
                 .build();
     }
 
+    private ManagerLeaveResponseDTO mapToManagerResponse(LeaveRequest leaveRequest) {
+        Employee employee = leaveRequest.getEmployee();
+
+        List<ApprovalHistoryDTO> history = leaveRequest.getApprovalHistories().stream()
+                .sorted(Comparator.comparing(LeaveApprovalHistory::getCreatedAt))
+                .map(record -> ApprovalHistoryDTO.builder()
+                        .approverFullName(record.getApprover().getFirstName() + " " + record.getApprover().getLastName())
+                        .action(record.getAction())
+                        .comments(record.getComments())
+                        .actionDate(record.getCreatedAt())
+                        .build())
+                .collect(Collectors.toList());
+
+        return ManagerLeaveResponseDTO.builder()
+                .leaveRequestId(leaveRequest.getId())
+                .employeeFullName(employee.getFirstName() + " " + employee.getLastName())
+                .employeeDepartmentName(employee.getDepartment() != null ? employee.getDepartment().getName() : null)
+                .leaveTypeName(leaveRequest.getLeaveType().getName())
+                .startDate(leaveRequest.getStartDateTime())
+                .endDate(leaveRequest.getEndDateTime())
+                .duration(leaveRequest.getDurationHours())
+                .currentStatus(leaveRequest.getRequestStatus())
+                .workflowNextApproverRole(leaveRequest.getWorkflowNextApproverRole())
+                .approvalHistory(history)
+                .build();
+    }
+
     // --- GEÇMİŞ (AUDIT) ---
     public List<LeaveApprovalHistoryResponse> getLeaveApprovalHistory(Long leaveRequestId) {
         LeaveRequest leaveRequest = leaveRequestRepository.findById(leaveRequestId)
@@ -623,5 +699,19 @@ public class LeaveRequestService {
                         .map(role -> role.getRoleName())
                         .anyMatch(roles::contains))
                 .orElse(false);
+    }
+
+    @Transactional(readOnly = true)
+    public List<TeamLeaveResponseDTO> getCompanyCurrentApprovedLeaves() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        boolean privileged = hasAnyRole(email, Set.of("HR", "CEO"));
+        if (!privileged) {
+            throw new BusinessException("Bu işlem için yetkiniz yok.");
+        }
+
+        List<LeaveRequest> leaves = leaveRequestRepository.findCurrentlyOnLeave(LocalDateTime.now());
+        return leaves.stream()
+                .map(this::mapToTeamLeaveResponse)
+                .collect(Collectors.toList());
     }
 }
