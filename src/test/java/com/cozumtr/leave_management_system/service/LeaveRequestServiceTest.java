@@ -128,8 +128,8 @@ class LeaveRequestServiceTest {
         when(leaveTypeRepository.findById(1L)).thenReturn(Optional.of(testLeaveType));
         when(leaveRequestRepository.existsByEmployeeAndDateRangeOverlap(
                 anyLong(), any(), any(), anyList())).thenReturn(false);
-        // calculateDuration gün döndürür, 2.0 gün = 16 saat (2 * 8)
-        when(leaveCalculationService.calculateDuration(any(), any())).thenReturn(new BigDecimal("2.0"));
+        // calculateDuration saat döndürür, 2 gün * 8 saat = 16 saat
+        when(leaveCalculationService.calculateDuration(any(), any(), any())).thenReturn(new BigDecimal("16.0"));
         when(leaveEntitlementRepository.findByEmployeeIdAndYear(anyLong(), anyInt()))
                 .thenReturn(Optional.of(testEntitlement));
         when(leaveRequestRepository.save(any(LeaveRequest.class))).thenAnswer(invocation -> {
@@ -247,7 +247,7 @@ class LeaveRequestServiceTest {
         when(leaveTypeRepository.findById(1L)).thenReturn(Optional.of(testLeaveType));
         when(leaveRequestRepository.existsByEmployeeAndDateRangeOverlap(
                 anyLong(), any(), any(), anyList())).thenReturn(false);
-        when(leaveCalculationService.calculateDuration(any(), any())).thenReturn(BigDecimal.ZERO);
+        when(leaveCalculationService.calculateDuration(any(), any(), any())).thenReturn(BigDecimal.ZERO);
 
 
         // Act & Assert
@@ -270,8 +270,8 @@ class LeaveRequestServiceTest {
         when(leaveTypeRepository.findById(1L)).thenReturn(Optional.of(testLeaveType));
         when(leaveRequestRepository.existsByEmployeeAndDateRangeOverlap(
                 anyLong(), any(), any(), anyList())).thenReturn(false);
-        // calculateDuration gün döndürür, 2.0 gün = 16 saat (2 * 8)
-        when(leaveCalculationService.calculateDuration(any(), any())).thenReturn(new BigDecimal("2.0"));
+        // calculateDuration saat döndürür, 2 gün * 8 saat = 16 saat
+        when(leaveCalculationService.calculateDuration(any(), any(), any())).thenReturn(new BigDecimal("16.0"));
         when(leaveEntitlementRepository.findByEmployeeIdAndYear(anyLong(), anyInt()))
                 .thenReturn(Optional.empty());
 
@@ -299,8 +299,8 @@ class LeaveRequestServiceTest {
         when(leaveTypeRepository.findById(1L)).thenReturn(Optional.of(testLeaveType));
         when(leaveRequestRepository.existsByEmployeeAndDateRangeOverlap(
                 anyLong(), any(), any(), anyList())).thenReturn(false);
-        // calculateDuration gün döndürür, 2.0 gün = 16 saat (2 * 8)
-        when(leaveCalculationService.calculateDuration(any(), any())).thenReturn(new BigDecimal("2.0"));
+        // calculateDuration saat döndürür, 2 gün * 8 saat = 16 saat
+        when(leaveCalculationService.calculateDuration(any(), any(), any())).thenReturn(new BigDecimal("16.0"));
         when(leaveEntitlementRepository.findByEmployeeIdAndYear(anyLong(), anyInt()))
                 .thenReturn(Optional.of(testEntitlement));
 
@@ -328,8 +328,8 @@ class LeaveRequestServiceTest {
         when(leaveTypeRepository.findById(1L)).thenReturn(Optional.of(testLeaveType));
         when(leaveRequestRepository.existsByEmployeeAndDateRangeOverlap(
                 anyLong(), any(), any(), anyList())).thenReturn(false);
-        // calculateDuration gün döndürür, 2.0 gün = 16 saat (2 * 8) - bakiye kontrolünden geçmesi için yeterli
-        when(leaveCalculationService.calculateDuration(any(), any())).thenReturn(new BigDecimal("2.0"));
+        // calculateDuration saat döndürür, 2 gün * 8 saat = 16 saat - bakiye kontrolünden geçmesi için yeterli
+        when(leaveCalculationService.calculateDuration(any(), any(), any())).thenReturn(new BigDecimal("16.0"));
         when(leaveEntitlementRepository.findByEmployeeIdAndYear(anyLong(), anyInt()))
                 .thenReturn(Optional.of(testEntitlement));
 
@@ -355,8 +355,8 @@ class LeaveRequestServiceTest {
         when(leaveTypeRepository.findById(1L)).thenReturn(Optional.of(testLeaveType));
         when(leaveRequestRepository.existsByEmployeeAndDateRangeOverlap(
                 anyLong(), any(), any(), anyList())).thenReturn(false);
-        // calculateDuration gün döndürür, 2.0 gün = 16 saat (2 * 8)
-        when(leaveCalculationService.calculateDuration(any(), any())).thenReturn(new BigDecimal("2.0"));
+        // calculateDuration saat döndürür, 2 gün * 8 saat = 16 saat
+        when(leaveCalculationService.calculateDuration(any(), any(), any())).thenReturn(new BigDecimal("16.0"));
         when(leaveEntitlementRepository.findByEmployeeIdAndYear(anyLong(), anyInt()))
                 .thenReturn(Optional.of(testEntitlement));
         when(leaveRequestRepository.save(any(LeaveRequest.class))).thenAnswer(invocation -> {

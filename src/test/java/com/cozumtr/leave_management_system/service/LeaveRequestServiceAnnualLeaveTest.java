@@ -112,8 +112,8 @@ class LeaveRequestServiceAnnualLeaveTest {
                 anyLong(), any(LocalDateTime.class), any(LocalDateTime.class), anyList()))
                 .thenReturn(false);
         when(leaveCalculationService.calculateDuration(
-                any(LocalDate.class), any(LocalDate.class)))
-                .thenReturn(new BigDecimal("24.0")); // 3 gün × 8 saat
+                any(LocalDate.class), any(LocalDate.class), any(BigDecimal.class)))
+                .thenReturn(new BigDecimal("24.0")); // 3 gün × 8 saat = 24 saat
         when(leaveEntitlementRepository.findByEmployeeIdAndYear(
                 anyLong(), anyInt()))
                 .thenReturn(Optional.of(testEntitlement));
@@ -149,8 +149,8 @@ class LeaveRequestServiceAnnualLeaveTest {
                 anyLong(), any(LocalDateTime.class), any(LocalDateTime.class), anyList()))
                 .thenReturn(false);
         when(leaveCalculationService.calculateDuration(
-                any(LocalDate.class), any(LocalDate.class)))
-                .thenReturn(new BigDecimal("24.0")); // 3 gün × 8 saat
+                any(LocalDate.class), any(LocalDate.class), any(BigDecimal.class)))
+                .thenReturn(new BigDecimal("24.0")); // 3 gün × 8 saat = 24 saat
         when(leaveEntitlementRepository.findByEmployeeIdAndYear(
                 anyLong(), anyInt()))
                 .thenReturn(Optional.of(testEntitlement));
@@ -181,8 +181,8 @@ class LeaveRequestServiceAnnualLeaveTest {
                 anyLong(), any(LocalDateTime.class), any(LocalDateTime.class), anyList()))
                 .thenReturn(false);
         when(leaveCalculationService.calculateDuration(
-                any(LocalDate.class), any(LocalDate.class)))
-                .thenReturn(new BigDecimal("40.0")); // 5 gün × 8 saat
+                any(LocalDate.class), any(LocalDate.class), any(BigDecimal.class)))
+                .thenReturn(new BigDecimal("40.0")); // 5 gün × 8 saat = 40 saat
         when(leaveEntitlementRepository.findByEmployeeIdAndYear(
                 anyLong(), anyInt()))
                 .thenReturn(Optional.of(testEntitlement));
@@ -199,6 +199,8 @@ class LeaveRequestServiceAnnualLeaveTest {
         // Then
         assertNotNull(response);
         assertEquals("Yıllık İzin", response.getLeaveTypeName());
+        assertEquals(RequestStatus.PENDING_APPROVAL, response.getStatus());
+        assertEquals("HR", response.getWorkflowNextApproverRole());
         verify(leaveRequestRepository, times(1)).save(any(LeaveRequest.class));
     }
 
@@ -214,8 +216,8 @@ class LeaveRequestServiceAnnualLeaveTest {
                 anyLong(), any(LocalDateTime.class), any(LocalDateTime.class), anyList()))
                 .thenReturn(false);
         when(leaveCalculationService.calculateDuration(
-                any(LocalDate.class), any(LocalDate.class)))
-                .thenReturn(new BigDecimal("24.0"));
+                any(LocalDate.class), any(LocalDate.class), any(BigDecimal.class)))
+                .thenReturn(new BigDecimal("24.0")); // 3 gün × 8 saat = 24 saat
         when(leaveEntitlementRepository.findByEmployeeIdAndYear(
                 anyLong(), anyInt()))
                 .thenReturn(Optional.empty()); // Entitlement yok
