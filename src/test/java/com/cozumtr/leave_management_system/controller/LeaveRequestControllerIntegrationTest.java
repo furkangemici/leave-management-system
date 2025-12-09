@@ -1246,6 +1246,333 @@ class LeaveRequestControllerIntegrationTest {
                 .andExpect(jsonPath("$.message").value(containsString("Hesaplanabilir süre bulunamadı")));
     }
 
+    // ========== MANAGER DASHBOARD TESTLERİ ==========
+
+    @Test
+    @DisplayName("GET /api/leaves/manager/dashboard - Manager sadece kendi departmanındaki ve workflow sırası MANAGER olan talepleri görür")
+    void getManagerDashboard_Manager_ShouldSeeOnlyOwnDepartmentAndWorkflowRole() throws Exception {
+        Department otherDept = new Department();
+        otherDept.setName("Other Dept");
+        otherDept.setIsActive(true);
+        otherDept = departmentRepository.save(otherDept);
+
+        Employee deptEmployee = new Employee();
+        deptEmployee.setFirstName("Dept");
+        deptEmployee.setLastName("User");
+        deptEmployee.setEmail("dept.user@example.com");
+        deptEmployee.setJobTitle("Dev");
+        deptEmployee.setBirthDate(LocalDate.of(1995, 1, 1));
+        deptEmployee.setHireDate(LocalDate.now().minusYears(2));
+        deptEmployee.setDailyWorkHours(new BigDecimal("8.0"));
+        deptEmployee.setDepartment(testEmployee.getDepartment());
+        deptEmployee.setIsActive(true);
+        deptEmployee = employeeRepository.save(deptEmployee);
+
+        Employee otherDeptEmployee = new Employee();
+        otherDeptEmployee.setFirstName("Other");
+        otherDeptEmployee.setLastName("User");
+        otherDeptEmployee.setEmail("other.user@example.com");
+        otherDeptEmployee.setJobTitle("QA");
+        otherDeptEmployee.setBirthDate(LocalDate.of(1994, 1, 1));
+        otherDeptEmployee.setHireDate(LocalDate.now().minusYears(2));
+        otherDeptEmployee.setDailyWorkHours(new BigDecimal("8.0"));
+        otherDeptEmployee.setDepartment(otherDept);
+        otherDeptEmployee.setIsActive(true);
+        otherDeptEmployee = employeeRepository.save(otherDeptEmployee);
+
+        LeaveRequest deptLeave = new LeaveRequest();
+        deptLeave.setEmployee(deptEmployee);
+        deptLeave.setLeaveType(annualLeaveType);
+        deptLeave.setStartDateTime(LocalDateTime.now().plusDays(2));
+        deptLeave.setEndDateTime(LocalDateTime.now().plusDays(3));
+        deptLeave.setDurationHours(new BigDecimal("8"));
+        deptLeave.setRequestStatus(RequestStatus.PENDING_APPROVAL);
+        deptLeave.setWorkflowNextApproverRole("MANAGER");
+        deptLeave.setReason("Dept leave");
+        deptLeave = leaveRequestRepository.save(deptLeave);
+
+        LeaveApprovalHistory deptHistory = new LeaveApprovalHistory();
+        deptHistory.setLeaveRequest(deptLeave);
+        deptHistory.setApprover(hrUser);
+        deptHistory.setAction(RequestStatus.APPROVED_HR);
+        deptHistory.setComments("HR onayladı");
+        deptHistory.setCreatedAt(LocalDateTime.now().minusHours(1));
+        deptLeave.getApprovalHistories().add(deptHistory);
+        leaveApprovalHistoryRepository.save(deptHistory);
+
+        LeaveRequest otherDeptLeave = new LeaveRequest();
+        otherDeptLeave.setEmployee(otherDeptEmployee);
+        otherDeptLeave.setLeaveType(annualLeaveType);
+        otherDeptLeave.setStartDateTime(LocalDateTime.now().plusDays(4));
+        otherDeptLeave.setEndDateTime(LocalDateTime.now().plusDays(5));
+        otherDeptLeave.setDurationHours(new BigDecimal("8"));
+        otherDeptLeave.setRequestStatus(RequestStatus.PENDING_APPROVAL);
+        otherDeptLeave.setWorkflowNextApproverRole("MANAGER");
+        otherDeptLeave.setReason("Other dept leave");
+        leaveRequestRepository.save(otherDeptLeave);
+
+        mockMvc.perform(get("/api/leaves/manager/dashboard")
+                        .header("Authorization", "Bearer " + managerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].leaveRequestId").value(deptLeave.getId()))
+                .andExpect(jsonPath("$[0].approvalHistory", hasSize(1)))
+                .andExpect(jsonPath("$[0].workflowNextApproverRole").value("MANAGER"));
+    }
+
+    @Test
+    @DisplayName("GET /api/leaves/manager/dashboard - HR yalnızca workflow sırası HR olan talepleri (şirket geneli) görür")
+    void getManagerDashboard_HR_ShouldSeeAllPendingForWorkflowRole() throws Exception {
+        Employee employee1 = new Employee();
+        employee1.setFirstName("Emp");
+        employee1.setLastName("One");
+        employee1.setEmail("emp.one@example.com");
+        employee1.setJobTitle("Dev");
+        employee1.setBirthDate(LocalDate.of(1992, 1, 1));
+        employee1.setHireDate(LocalDate.now().minusYears(3));
+        employee1.setDailyWorkHours(new BigDecimal("8.0"));
+        employee1.setDepartment(testEmployee.getDepartment());
+        employee1.setIsActive(true);
+        employee1 = employeeRepository.save(employee1);
+
+        Employee employee2 = new Employee();
+        employee2.setFirstName("Emp");
+        employee2.setLastName("Two");
+        employee2.setEmail("emp.two@example.com");
+        employee2.setJobTitle("Dev");
+        employee2.setBirthDate(LocalDate.of(1993, 1, 1));
+        employee2.setHireDate(LocalDate.now().minusYears(4));
+        employee2.setDailyWorkHours(new BigDecimal("8.0"));
+        employee2.setDepartment(testEmployee.getDepartment());
+        employee2.setIsActive(true);
+        employee2 = employeeRepository.save(employee2);
+
+        LeaveRequest lr1 = new LeaveRequest();
+        lr1.setEmployee(employee1);
+        lr1.setLeaveType(annualLeaveType);
+        lr1.setStartDateTime(LocalDateTime.now().plusDays(2));
+        lr1.setEndDateTime(LocalDateTime.now().plusDays(4));
+        lr1.setDurationHours(new BigDecimal("16"));
+        lr1.setRequestStatus(RequestStatus.PENDING_APPROVAL);
+        lr1.setWorkflowNextApproverRole("HR");
+        lr1.setReason("HR list leave 1");
+        lr1 = leaveRequestRepository.save(lr1);
+
+        LeaveApprovalHistory lr1History = new LeaveApprovalHistory();
+        lr1History.setLeaveRequest(lr1);
+        lr1History.setApprover(hrUser);
+        lr1History.setAction(RequestStatus.PENDING_APPROVAL);
+        lr1History.setComments("İlk kayıt");
+        lr1History.setCreatedAt(LocalDateTime.now().minusHours(2));
+        lr1.getApprovalHistories().add(lr1History);
+        leaveApprovalHistoryRepository.save(lr1History);
+
+        LeaveRequest lr2 = new LeaveRequest();
+        lr2.setEmployee(employee2);
+        lr2.setLeaveType(excuseLeaveType);
+        lr2.setStartDateTime(LocalDateTime.now().plusDays(5));
+        lr2.setEndDateTime(LocalDateTime.now().plusDays(5).plusHours(2));
+        lr2.setDurationHours(new BigDecimal("2"));
+        lr2.setRequestStatus(RequestStatus.PENDING_APPROVAL);
+        lr2.setWorkflowNextApproverRole("HR");
+        lr2.setReason("HR list leave 2");
+        lr2 = leaveRequestRepository.save(lr2);
+
+        LeaveApprovalHistory lr2History = new LeaveApprovalHistory();
+        lr2History.setLeaveRequest(lr2);
+        lr2History.setApprover(hrUser);
+        lr2History.setAction(RequestStatus.PENDING_APPROVAL);
+        lr2History.setComments("İlk kayıt");
+        lr2History.setCreatedAt(LocalDateTime.now().minusHours(1));
+        lr2.getApprovalHistories().add(lr2History);
+        leaveApprovalHistoryRepository.save(lr2History);
+
+        // Reddedilmiş kayıt HR listesinde görünmemeli
+        LeaveRequest lrRejected = new LeaveRequest();
+        lrRejected.setEmployee(employee1);
+        lrRejected.setLeaveType(annualLeaveType);
+        lrRejected.setStartDateTime(LocalDateTime.now().plusDays(7));
+        lrRejected.setEndDateTime(LocalDateTime.now().plusDays(8));
+        lrRejected.setDurationHours(new BigDecimal("8"));
+        lrRejected.setRequestStatus(RequestStatus.REJECTED);
+        lrRejected.setWorkflowNextApproverRole("HR"); // bekleyen rol olsa bile statü reddedilmiş
+        lrRejected.setReason("Red testi");
+        leaveRequestRepository.save(lrRejected);
+
+        // HR sırası dışında (MANAGER) olan bir kayıt HR listesinde görünmemeli
+        LeaveRequest lr3 = new LeaveRequest();
+        lr3.setEmployee(employee2);
+        lr3.setLeaveType(annualLeaveType);
+        lr3.setStartDateTime(LocalDateTime.now().plusDays(6));
+        lr3.setEndDateTime(LocalDateTime.now().plusDays(7));
+        lr3.setDurationHours(new BigDecimal("8"));
+        lr3.setRequestStatus(RequestStatus.PENDING_APPROVAL);
+        lr3.setWorkflowNextApproverRole("MANAGER");
+        lr3.setReason("Manager sırası, HR görmemeli");
+        leaveRequestRepository.save(lr3);
+
+        mockMvc.perform(get("/api/leaves/manager/dashboard")
+                        .header("Authorization", "Bearer " + hrToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[0].approvalHistory", hasSize(1)))
+                .andExpect(jsonPath("$[1].approvalHistory", hasSize(1)))
+                .andExpect(jsonPath("$[*].workflowNextApproverRole", everyItem(is("HR"))));
+    }
+
+    @Test
+    @DisplayName("GET /api/leaves/company-current - HR tüm şirkette şu an izinde olanları görür")
+    void getCompanyCurrentLeaves_HR_ShouldReturnCompanyWideApproved() throws Exception {
+        Department otherDept = new Department();
+        otherDept.setName("Other Dept");
+        otherDept.setIsActive(true);
+        otherDept = departmentRepository.save(otherDept);
+
+        Employee emp1 = new Employee();
+        emp1.setFirstName("Now");
+        emp1.setLastName("InLeave");
+        emp1.setEmail("now.inleave@example.com");
+        emp1.setJobTitle("Dev");
+        emp1.setBirthDate(LocalDate.of(1990, 1, 1));
+        emp1.setHireDate(LocalDate.now().minusYears(3));
+        emp1.setDailyWorkHours(new BigDecimal("8.0"));
+        emp1.setDepartment(testEmployee.getDepartment());
+        emp1.setIsActive(true);
+        emp1 = employeeRepository.save(emp1);
+
+        Employee emp2 = new Employee();
+        emp2.setFirstName("Other");
+        emp2.setLastName("DeptUser");
+        emp2.setEmail("other.dept@example.com");
+        emp2.setJobTitle("QA");
+        emp2.setBirthDate(LocalDate.of(1989, 1, 1));
+        emp2.setHireDate(LocalDate.now().minusYears(4));
+        emp2.setDailyWorkHours(new BigDecimal("8.0"));
+        emp2.setDepartment(otherDept);
+        emp2.setIsActive(true);
+        emp2 = employeeRepository.save(emp2);
+
+        LocalDateTime now = LocalDateTime.now();
+
+        LeaveRequest lr1 = new LeaveRequest();
+        lr1.setEmployee(emp1);
+        lr1.setLeaveType(annualLeaveType);
+        lr1.setStartDateTime(now.minusHours(1));
+        lr1.setEndDateTime(now.plusHours(5));
+        lr1.setDurationHours(new BigDecimal("8"));
+        lr1.setRequestStatus(RequestStatus.APPROVED);
+        lr1.setWorkflowNextApproverRole("");
+        lr1.setReason("Company current 1");
+        leaveRequestRepository.save(lr1);
+
+        LeaveRequest lr2 = new LeaveRequest();
+        lr2.setEmployee(emp2);
+        lr2.setLeaveType(excuseLeaveType);
+        lr2.setStartDateTime(now.minusHours(2));
+        lr2.setEndDateTime(now.plusHours(1));
+        lr2.setDurationHours(new BigDecimal("3"));
+        lr2.setRequestStatus(RequestStatus.APPROVED);
+        lr2.setWorkflowNextApproverRole("");
+        lr2.setReason("Company current 2");
+        leaveRequestRepository.save(lr2);
+
+        // Gelecekteki izin görünmemeli
+        LeaveRequest future = new LeaveRequest();
+        future.setEmployee(emp1);
+        future.setLeaveType(annualLeaveType);
+        future.setStartDateTime(now.plusDays(2));
+        future.setEndDateTime(now.plusDays(3));
+        future.setDurationHours(new BigDecimal("8"));
+        future.setRequestStatus(RequestStatus.APPROVED);
+        future.setWorkflowNextApproverRole("");
+        future.setReason("Future leave");
+        leaveRequestRepository.save(future);
+
+        mockMvc.perform(get("/api/leaves/company-current")
+                        .header("Authorization", "Bearer " + hrToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[*].employeeFullName", containsInAnyOrder(
+                        "Now InLeave", "Other DeptUser"
+                )));
+    }
+
+    @Test
+    @DisplayName("GET /api/leaves/manager/dashboard - CEO şirket genelindeki workflow sırası CEO olan talepleri ve tarihçelerini görebilir")
+    void getManagerDashboard_CEO_ShouldSeeAllPendingForWorkflowRole() throws Exception {
+        Employee employee1 = new Employee();
+        employee1.setFirstName("Ceo");
+        employee1.setLastName("One");
+        employee1.setEmail("ceo.one@example.com");
+        employee1.setJobTitle("Dev");
+        employee1.setBirthDate(LocalDate.of(1991, 1, 1));
+        employee1.setHireDate(LocalDate.now().minusYears(5));
+        employee1.setDailyWorkHours(new BigDecimal("8.0"));
+        employee1.setDepartment(testEmployee.getDepartment());
+        employee1.setIsActive(true);
+        employee1 = employeeRepository.save(employee1);
+
+        Employee employee2 = new Employee();
+        employee2.setFirstName("Ceo");
+        employee2.setLastName("Two");
+        employee2.setEmail("ceo.two@example.com");
+        employee2.setJobTitle("Dev");
+        employee2.setBirthDate(LocalDate.of(1990, 6, 1));
+        employee2.setHireDate(LocalDate.now().minusYears(6));
+        employee2.setDailyWorkHours(new BigDecimal("8.0"));
+        employee2.setDepartment(testEmployee.getDepartment());
+        employee2.setIsActive(true);
+        employee2 = employeeRepository.save(employee2);
+
+        LeaveRequest lr1 = new LeaveRequest();
+        lr1.setEmployee(employee1);
+        lr1.setLeaveType(annualLeaveType);
+        lr1.setStartDateTime(LocalDateTime.now().plusDays(2));
+        lr1.setEndDateTime(LocalDateTime.now().plusDays(3));
+        lr1.setDurationHours(new BigDecimal("8"));
+        lr1.setRequestStatus(RequestStatus.PENDING_APPROVAL);
+        lr1.setWorkflowNextApproverRole("CEO");
+        lr1.setReason("CEO list leave 1");
+        lr1 = leaveRequestRepository.save(lr1);
+
+        LeaveApprovalHistory lr1History = new LeaveApprovalHistory();
+        lr1History.setLeaveRequest(lr1);
+        lr1History.setApprover(hrUser);
+        lr1History.setAction(RequestStatus.APPROVED_HR);
+        lr1History.setComments("HR onayladı");
+        lr1History.setCreatedAt(LocalDateTime.now().minusHours(2));
+        lr1.getApprovalHistories().add(lr1History);
+        leaveApprovalHistoryRepository.save(lr1History);
+
+        LeaveRequest lr2 = new LeaveRequest();
+        lr2.setEmployee(employee2);
+        lr2.setLeaveType(annualLeaveType);
+        lr2.setStartDateTime(LocalDateTime.now().plusDays(4));
+        lr2.setEndDateTime(LocalDateTime.now().plusDays(5));
+        lr2.setDurationHours(new BigDecimal("8"));
+        lr2.setRequestStatus(RequestStatus.PENDING_APPROVAL);
+        lr2.setWorkflowNextApproverRole("CEO");
+        lr2.setReason("CEO list leave 2");
+        lr2 = leaveRequestRepository.save(lr2);
+
+        LeaveApprovalHistory lr2History = new LeaveApprovalHistory();
+        lr2History.setLeaveRequest(lr2);
+        lr2History.setApprover(hrUser);
+        lr2History.setAction(RequestStatus.APPROVED_HR);
+        lr2History.setComments("HR onayladı");
+        lr2History.setCreatedAt(LocalDateTime.now().minusHours(1));
+        lr2.getApprovalHistories().add(lr2History);
+        leaveApprovalHistoryRepository.save(lr2History);
+
+        mockMvc.perform(get("/api/leaves/manager/dashboard")
+                        .header("Authorization", "Bearer " + ceoToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[0].approvalHistory", hasSize(1)))
+                .andExpect(jsonPath("$[1].approvalHistory", hasSize(1)))
+                .andExpect(jsonPath("$[*].workflowNextApproverRole", everyItem(is("CEO"))));
+    }
+
     private String loginAndGetToken(String email, String password) throws Exception {
         String body = String.format("""
                 {
