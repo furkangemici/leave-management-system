@@ -3,6 +3,7 @@ package com.cozumtr.leave_management_system.controller;
 import com.cozumtr.leave_management_system.dto.request.CreateLeaveRequest;
 import com.cozumtr.leave_management_system.dto.response.LeaveRequestResponse;
 import com.cozumtr.leave_management_system.dto.response.LeaveTypeResponse;
+import com.cozumtr.leave_management_system.dto.response.LeaveApprovalHistoryResponse;
 import com.cozumtr.leave_management_system.dto.response.MessageResponseDto;
 import com.cozumtr.leave_management_system.dto.response.TeamLeaveResponseDTO;
 import com.cozumtr.leave_management_system.service.EmployeeService;
@@ -32,6 +33,14 @@ public class LeaveRequestController {
     public ResponseEntity<List<LeaveRequestResponse>> getMyLeaveRequests() {
         List<LeaveRequestResponse> leaveRequests = leaveRequestService.getMyLeaveRequests();
         return ResponseEntity.ok(leaveRequests);
+    }
+
+    // --- İZİN TALEBİ GEÇMİŞİ ---
+    @PreAuthorize("hasAnyRole('EMPLOYEE','HR','MANAGER','CEO')")
+    @GetMapping("/{id}/history")
+    public ResponseEntity<List<LeaveApprovalHistoryResponse>> getLeaveHistory(@PathVariable Long id) {
+        List<LeaveApprovalHistoryResponse> history = leaveRequestService.getLeaveApprovalHistory(id);
+        return ResponseEntity.ok(history);
     }
 
     // --- İZİN TALEBİ OLUŞTURMA ---

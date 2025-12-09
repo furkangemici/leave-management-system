@@ -3,6 +3,7 @@ package com.cozumtr.leave_management_system.service;
 import com.cozumtr.leave_management_system.dto.request.CreateLeaveRequest;
 import com.cozumtr.leave_management_system.dto.response.LeaveRequestResponse;
 import com.cozumtr.leave_management_system.dto.response.TeamLeaveResponseDTO;
+import com.cozumtr.leave_management_system.dto.response.LeaveApprovalHistoryResponse;
 import com.cozumtr.leave_management_system.entities.Employee;
 import com.cozumtr.leave_management_system.entities.LeaveApprovalHistory;
 import com.cozumtr.leave_management_system.entities.LeaveEntitlement;
@@ -29,6 +30,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -274,12 +276,7 @@ public class LeaveRequestService {
         }
 
         // 6. Onay geçmişi kaydet
-        LeaveApprovalHistory history = new LeaveApprovalHistory();
-        history.setLeaveRequest(leaveRequest);
-        history.setApprover(approver);
-        history.setAction(leaveRequest.getRequestStatus());
-        history.setComments(comments != null ? comments : "");
-        leaveApprovalHistoryRepository.save(history);
+        saveApprovalHistory(leaveRequest, approver, leaveRequest.getRequestStatus(), comments);
 
         // 7. İzin talebini kaydet
         LeaveRequest savedRequest = leaveRequestRepository.save(leaveRequest);
@@ -322,34 +319,43 @@ public class LeaveRequestService {
             String nextApproverRole = leaveRequest.getWorkflowNextApproverRole();
             
             // Kullanıcının tüm rollerini kontrol edip workflow'daki rolü bul
-            String currentRole = approverUser.getRoles().stream()
+            boolean hasRequiredRole = approverUser.getRoles().stream()
                     .map(role -> role.getRoleName())
-                    .filter(roleName -> roleName.equals(nextApproverRole))
-                    .findFirst()
-                    .orElseThrow(() -> new BusinessException(
-                            String.format("Bu izin talebini reddetme yetkiniz yok. Beklenen rol: %s, Sizin rolleriniz: %s", 
-                                    nextApproverRole,
-                                    approverUser.getRoles().stream()
-                                            .map(role -> role.getRoleName())
-                                            .collect(java.util.stream.Collectors.joining(", ")))
-                    ));
+                    .anyMatch(roleName -> roleName.equals(nextApproverRole));
+
+            if (!hasRequiredRole) {
+                throw new BusinessException(
+                        String.format("Bu izin talebini reddetme yetkiniz yok. Beklenen rol: %s, Sizin rolleriniz: %s",
+                                nextApproverRole,
+                                approverUser.getRoles().stream()
+                                        .map(role -> role.getRoleName())
+                                        .collect(java.util.stream.Collectors.joining(", ")))
+                );
+            }
         }
 
         // 5. Reddet
         leaveRequest.setRequestStatus(RequestStatus.REJECTED);
 
         // 6. Red geçmişi kaydet
-        LeaveApprovalHistory history = new LeaveApprovalHistory();
-        history.setLeaveRequest(leaveRequest);
-        history.setApprover(approver);
-        history.setAction(RequestStatus.REJECTED);
-        history.setComments(comments != null ? comments : "");
-        leaveApprovalHistoryRepository.save(history);
+        saveApprovalHistory(leaveRequest, approver, RequestStatus.REJECTED, comments);
 
         // 7. İzin talebini kaydet
         LeaveRequest savedRequest = leaveRequestRepository.save(leaveRequest);
 
         return mapToResponse(savedRequest);
+    }
+
+    private void saveApprovalHistory(LeaveRequest leaveRequest,
+                                     Employee approver,
+                                     RequestStatus action,
+                                     String comments) {
+        LeaveApprovalHistory history = new LeaveApprovalHistory();
+        history.setLeaveRequest(leaveRequest);
+        history.setApprover(approver);
+        history.setAction(action);
+        history.setComments(comments != null ? comments : "");
+        leaveApprovalHistoryRepository.save(history);
     }
 
     // --- KENDİ İZİN TALEPLERİMİ LİSTELEME ---
@@ -582,5 +588,40 @@ public class LeaveRequestService {
                 .endDate(leaveRequest.getEndDateTime())
                 .totalHours(leaveRequest.getDurationHours())
                 .build();
+    }
+
+    // --- GEÇMİŞ (AUDIT) ---
+    public List<LeaveApprovalHistoryResponse> getLeaveApprovalHistory(Long leaveRequestId) {
+        LeaveRequest leaveRequest = leaveRequestRepository.findById(leaveRequestId)
+                .orElseThrow(() -> new EntityNotFoundException("İzin talebi bulunamadı ID: " + leaveRequestId));
+
+        String currentEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+        boolean isOwner = leaveRequest.getEmployee().getEmail().equals(currentEmail);
+        boolean isPrivileged = hasAnyRole(currentEmail, Set.of("HR", "MANAGER", "CEO"));
+
+        if (!isOwner && !isPrivileged) {
+            throw new BusinessException("Bu izin talebinin geçmişini görüntüleme yetkiniz yok.");
+        }
+
+        List<LeaveApprovalHistory> histories =
+                leaveApprovalHistoryRepository.findByLeaveRequestIdOrderByCreatedAtAsc(leaveRequestId);
+
+        return histories.stream()
+                .map(history -> LeaveApprovalHistoryResponse.builder()
+                        .id(history.getId())
+                        .approverFullName(history.getApprover().getFirstName() + " " + history.getApprover().getLastName())
+                        .action(history.getAction())
+                        .comments(history.getComments())
+                        .createdAt(history.getCreatedAt())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    private boolean hasAnyRole(String email, Set<String> roles) {
+        return userRepository.findByEmployeeEmail(email)
+                .map(user -> user.getRoles().stream()
+                        .map(role -> role.getRoleName())
+                        .anyMatch(roles::contains))
+                .orElse(false);
     }
 }

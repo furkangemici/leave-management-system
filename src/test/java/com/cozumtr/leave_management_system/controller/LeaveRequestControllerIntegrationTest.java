@@ -4,6 +4,7 @@ import com.cozumtr.leave_management_system.entities.*;
 import com.cozumtr.leave_management_system.enums.RequestStatus;
 import com.cozumtr.leave_management_system.repository.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -17,8 +18,11 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.TemporalAdjusters;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -61,6 +65,9 @@ class LeaveRequestControllerIntegrationTest {
     private LeaveRequestRepository leaveRequestRepository;
 
     @Autowired
+    private LeaveApprovalHistoryRepository leaveApprovalHistoryRepository;
+
+    @Autowired
     private PublicHolidayRepository publicHolidayRepository;
 
     @Autowired
@@ -73,11 +80,17 @@ class LeaveRequestControllerIntegrationTest {
     private User testUser;
     private Employee hrUser;
     private User hrUserEntity;
+    private Employee managerUser;
+    private User managerUserEntity;
+    private Employee ceoUser;
+    private User ceoUserEntity;
     private LeaveType annualLeaveType;
     private LeaveType excuseLeaveType;
     private LeaveEntitlement testEntitlement;
     private String employeeToken;
     private String hrToken;
+    private String managerToken;
+    private String ceoToken;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -85,6 +98,7 @@ class LeaveRequestControllerIntegrationTest {
         leaveRequestRepository.deleteAll();
         leaveEntitlementRepository.deleteAll();
         publicHolidayRepository.deleteAll();
+        leaveApprovalHistoryRepository.deleteAll();
         userRepository.deleteAll();
         employeeRepository.deleteAll();
         leaveTypeRepository.deleteAll();
@@ -107,6 +121,16 @@ class LeaveRequestControllerIntegrationTest {
         hrRole.setRoleName("HR");
         hrRole.setIsActive(true);
         hrRole = roleRepository.save(hrRole);
+
+        Role managerRole = new Role();
+        managerRole.setRoleName("MANAGER");
+        managerRole.setIsActive(true);
+        managerRole = roleRepository.save(managerRole);
+
+        Role ceoRole = new Role();
+        ceoRole.setRoleName("CEO");
+        ceoRole.setIsActive(true);
+        ceoRole = roleRepository.save(ceoRole);
 
         // Create Employee - 3 yıl kıdem (14 gün izin hakkı)
         testEmployee = new Employee();
@@ -157,6 +181,56 @@ class LeaveRequestControllerIntegrationTest {
         hrUserEntity.setRoles(hrRoles);
         hrUserEntity = userRepository.save(hrUserEntity);
 
+        // Create Manager Employee
+        managerUser = new Employee();
+        managerUser.setFirstName("Manager");
+        managerUser.setLastName("User");
+        managerUser.setEmail("manager@example.com");
+        managerUser.setJobTitle("Team Manager");
+        managerUser.setBirthDate(LocalDate.of(1987, 2, 1));
+        managerUser.setHireDate(LocalDate.now().minusYears(4));
+        managerUser.setDailyWorkHours(new BigDecimal("8.0"));
+        managerUser.setDepartment(department);
+        managerUser.setIsActive(true);
+        managerUser = employeeRepository.save(managerUser);
+
+        // Create Manager User
+        managerUserEntity = new User();
+        managerUserEntity.setEmployee(managerUser);
+        managerUserEntity.setPasswordHash(passwordEncoder.encode("Password123!"));
+        managerUserEntity.setIsActive(true);
+        managerUserEntity.setFailedLoginAttempts(0);
+        Set<Role> managerRoles = new HashSet<>();
+        managerRoles.add(employeeRole);
+        managerRoles.add(managerRole);
+        managerUserEntity.setRoles(managerRoles);
+        managerUserEntity = userRepository.save(managerUserEntity);
+
+        // Create CEO Employee
+        ceoUser = new Employee();
+        ceoUser.setFirstName("Ceo");
+        ceoUser.setLastName("User");
+        ceoUser.setEmail("ceo@example.com");
+        ceoUser.setJobTitle("CEO");
+        ceoUser.setBirthDate(LocalDate.of(1980, 3, 1));
+        ceoUser.setHireDate(LocalDate.now().minusYears(8));
+        ceoUser.setDailyWorkHours(new BigDecimal("8.0"));
+        ceoUser.setDepartment(department);
+        ceoUser.setIsActive(true);
+        ceoUser = employeeRepository.save(ceoUser);
+
+        // Create CEO User
+        ceoUserEntity = new User();
+        ceoUserEntity.setEmployee(ceoUser);
+        ceoUserEntity.setPasswordHash(passwordEncoder.encode("Password123!"));
+        ceoUserEntity.setIsActive(true);
+        ceoUserEntity.setFailedLoginAttempts(0);
+        Set<Role> ceoRoles = new HashSet<>();
+        ceoRoles.add(employeeRole);
+        ceoRoles.add(ceoRole);
+        ceoUserEntity.setRoles(ceoRoles);
+        ceoUserEntity = userRepository.save(ceoUserEntity);
+
         // Create Leave Types
         annualLeaveType = new LeaveType();
         annualLeaveType.setName("Yıllık İzin");
@@ -187,6 +261,8 @@ class LeaveRequestControllerIntegrationTest {
         // Get tokens
         employeeToken = loginAndGetToken("test.employee@example.com", "Password123!");
         hrToken = loginAndGetToken("hr@example.com", "Password123!");
+        managerToken = loginAndGetToken("manager@example.com", "Password123!");
+        ceoToken = loginAndGetToken("ceo@example.com", "Password123!");
     }
 
     // ========== İZİN TALEBİ OLUŞTURMA TESTLERİ ==========
@@ -269,9 +345,12 @@ class LeaveRequestControllerIntegrationTest {
     @DisplayName("POST /api/leaves - Ayda 5. mazeret izni talebi limiti aşmalı")
     void createLeaveRequest_ExcuseLeave_5thRequest_ShouldReturnBadRequest() throws Exception {
         // Önce 4 mazeret izni oluştur
-        LocalDateTime baseDate = LocalDateTime.now().withHour(9).withMinute(0);
+        LocalDate nextMonthWeekday = LocalDate.now()
+                .with(TemporalAdjusters.firstDayOfNextMonth())
+                .with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY));
+        LocalDateTime baseDate = nextMonthWeekday.atTime(9, 0);
         for (int i = 1; i <= 4; i++) {
-            LocalDateTime startDate = baseDate.plusDays(i).withHour(9);
+            LocalDateTime startDate = baseDate.plusDays(i);
             LocalDateTime endDate = baseDate.plusDays(i).withHour(11); // 2 saat
 
             String requestBody = String.format("""
@@ -301,7 +380,7 @@ class LeaveRequestControllerIntegrationTest {
         }
 
         // 5. mazeret izni talebi - Limit aşılmış olmalı
-        LocalDateTime startDate = baseDate.plusDays(10).withHour(9);
+        LocalDateTime startDate = baseDate.plusDays(10);
         LocalDateTime endDate = baseDate.plusDays(10).withHour(11);
 
         String requestBody = String.format("""
@@ -430,6 +509,187 @@ class LeaveRequestControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("POST /api/leaves/{id}/approve - Onay sonrası audit log kaydedilmeli")
+    void approveLeaveRequest_ShouldCreateAuditLog() throws Exception {
+        // İzin talebi oluştur
+        LocalDateTime startDate = LocalDateTime.now().plusDays(1).withHour(9);
+        LocalDateTime endDate = LocalDateTime.now().plusDays(2).withHour(17);
+
+        String createRequestBody = String.format("""
+                {
+                  "leaveTypeId": %d,
+                  "startDate": "%s",
+                  "endDate": "%s",
+                  "reason": "Audit log testi"
+                }
+                """, annualLeaveType.getId(), startDate, endDate);
+
+        String createResponse = mockMvc.perform(post("/api/leaves")
+                        .header("Authorization", "Bearer " + employeeToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createRequestBody)
+                        .with(csrf()))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> createResponseMap = objectMapper.readValue(createResponse, Map.class);
+        Long leaveRequestId = Long.valueOf(createResponseMap.get("id").toString());
+
+        // Onayla
+        mockMvc.perform(post("/api/leaves/{id}/approve", leaveRequestId)
+                        .header("Authorization", "Bearer " + hrToken)
+                        .param("comments", "Onaylandı (audit)")
+                        .with(csrf()))
+                .andExpect(status().isOk());
+
+        var histories = leaveApprovalHistoryRepository.findAll();
+        assertEquals(1, histories.size());
+        assertEquals(RequestStatus.APPROVED_HR, histories.get(0).getAction());
+        assertEquals("Onaylandı (audit)", histories.get(0).getComments());
+        assertEquals(leaveRequestId, histories.get(0).getLeaveRequest().getId());
+        assertEquals(hrUser.getId(), histories.get(0).getApprover().getId());
+    }
+
+    @Test
+    @DisplayName("POST /api/leaves/{id}/approve - Çok adımlı onay süreci audit log'u sıralı kaydedilmeli")
+    void approveLeaveRequest_MultiStep_ShouldCreateSequentialAuditLogs() throws Exception {
+        // İzin talebi oluştur
+        LocalDateTime startDate = LocalDateTime.now().plusDays(1).withHour(9);
+        LocalDateTime endDate = LocalDateTime.now().plusDays(2).withHour(17);
+
+        String createRequestBody = String.format("""
+                {
+                  "leaveTypeId": %d,
+                  "startDate": "%s",
+                  "endDate": "%s",
+                  "reason": "Çok adımlı onay testi"
+                }
+                """, annualLeaveType.getId(), startDate, endDate);
+
+        String createResponse = mockMvc.perform(post("/api/leaves")
+                        .header("Authorization", "Bearer " + employeeToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createRequestBody)
+                        .with(csrf()))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> createResponseMap = objectMapper.readValue(createResponse, Map.class);
+        Long leaveRequestId = Long.valueOf(createResponseMap.get("id").toString());
+
+        // HR onayı
+        mockMvc.perform(post("/api/leaves/{id}/approve", leaveRequestId)
+                        .header("Authorization", "Bearer " + hrToken)
+                        .param("comments", "HR onayladı")
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value(in(Set.of("APPROVED", "APPROVED_HR", "APPROVED_MANAGER"))));
+
+        // MANAGER onayı
+        mockMvc.perform(post("/api/leaves/{id}/approve", leaveRequestId)
+                        .header("Authorization", "Bearer " + managerToken)
+                        .param("comments", "Manager onayladı")
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value(in(Set.of("APPROVED", "APPROVED_MANAGER"))));
+
+        // CEO onayı (final)
+        mockMvc.perform(post("/api/leaves/{id}/approve", leaveRequestId)
+                        .header("Authorization", "Bearer " + ceoToken)
+                        .param("comments", "CEO onayladı")
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("APPROVED"));
+
+        var histories = leaveApprovalHistoryRepository.findAll();
+        Assertions.assertThat(histories).hasSize(3);
+        histories.sort(Comparator.comparing(LeaveApprovalHistory::getCreatedAt));
+
+        Assertions.assertThat(histories.get(0).getAction())
+                .isIn(RequestStatus.APPROVED_HR, RequestStatus.APPROVED);
+        Assertions.assertThat(histories.get(0).getApprover().getId()).isEqualTo(hrUser.getId());
+        Assertions.assertThat(histories.get(0).getComments()).isEqualTo("HR onayladı");
+
+        Assertions.assertThat(histories.get(1).getAction())
+                .isIn(RequestStatus.APPROVED_MANAGER, RequestStatus.APPROVED);
+        Assertions.assertThat(histories.get(1).getApprover().getId()).isEqualTo(managerUser.getId());
+        Assertions.assertThat(histories.get(1).getComments()).isEqualTo("Manager onayladı");
+
+        Assertions.assertThat(histories.get(2).getAction())
+                .isEqualTo(RequestStatus.APPROVED);
+        Assertions.assertThat(histories.get(2).getApprover().getId()).isEqualTo(ceoUser.getId());
+        Assertions.assertThat(histories.get(2).getComments()).isEqualTo("CEO onayladı");
+    }
+
+    @Test
+    @DisplayName("GET /api/leaves/{id}/history - Çalışan kendi talebinin geçmişini görebilmeli")
+    void getLeaveHistory_AsOwner_ShouldReturnChronologicalHistory() throws Exception {
+        // İzin talebi oluştur
+        LocalDateTime startDate = LocalDateTime.now().plusDays(1).withHour(9);
+        LocalDateTime endDate = LocalDateTime.now().plusDays(2).withHour(17);
+
+        String createRequestBody = String.format("""
+                {
+                  "leaveTypeId": %d,
+                  "startDate": "%s",
+                  "endDate": "%s",
+                  "reason": "History endpoint testi"
+                }
+                """, annualLeaveType.getId(), startDate, endDate);
+
+        String createResponse = mockMvc.perform(post("/api/leaves")
+                        .header("Authorization", "Bearer " + employeeToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createRequestBody)
+                        .with(csrf()))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> createResponseMap = objectMapper.readValue(createResponse, Map.class);
+        Long leaveRequestId = Long.valueOf(createResponseMap.get("id").toString());
+
+        // HR, Manager, CEO onayları
+        mockMvc.perform(post("/api/leaves/{id}/approve", leaveRequestId)
+                        .header("Authorization", "Bearer " + hrToken)
+                        .param("comments", "HR onayladı")
+                        .with(csrf()))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/leaves/{id}/approve", leaveRequestId)
+                        .header("Authorization", "Bearer " + managerToken)
+                        .param("comments", "Manager onayladı")
+                        .with(csrf()))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/leaves/{id}/approve", leaveRequestId)
+                        .header("Authorization", "Bearer " + ceoToken)
+                        .param("comments", "CEO onayladı")
+                        .with(csrf()))
+                .andExpect(status().isOk());
+
+        // Geçmişi çek (talep sahibi olarak)
+        mockMvc.perform(get("/api/leaves/{id}/history", leaveRequestId)
+                        .header("Authorization", "Bearer " + employeeToken)
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$.length()").value(3))
+                .andExpect(jsonPath("$[0].comments").value("HR onayladı"))
+                .andExpect(jsonPath("$[1].comments").value("Manager onayladı"))
+                .andExpect(jsonPath("$[2].comments").value("CEO onayladı"))
+                .andExpect(jsonPath("$[0].approverFullName").value(hrUser.getFirstName() + " " + hrUser.getLastName()));
+    }
+
+    @Test
     @DisplayName("POST /api/leaves/{id}/reject - HR izin talebini reddedebilmeli")
     void rejectLeaveRequest_AsHR_ShouldRejectSuccessfully() throws Exception {
         // Önce bir izin talebi oluştur
@@ -466,6 +726,49 @@ class LeaveRequestControllerIntegrationTest {
                         .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("REJECTED"));
+    }
+
+    @Test
+    @DisplayName("POST /api/leaves/{id}/reject - Red sonrası audit log kaydedilmeli")
+    void rejectLeaveRequest_ShouldCreateAuditLog() throws Exception {
+        LocalDateTime startDate = LocalDateTime.now().plusDays(1).withHour(9);
+        LocalDateTime endDate = LocalDateTime.now().plusDays(2).withHour(17);
+
+        String createRequestBody = String.format("""
+                {
+                  "leaveTypeId": %d,
+                  "startDate": "%s",
+                  "endDate": "%s",
+                  "reason": "Audit log reject testi"
+                }
+                """, annualLeaveType.getId(), startDate, endDate);
+
+        String createResponse = mockMvc.perform(post("/api/leaves")
+                        .header("Authorization", "Bearer " + employeeToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createRequestBody)
+                        .with(csrf()))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> createResponseMap = objectMapper.readValue(createResponse, Map.class);
+        Long leaveRequestId = Long.valueOf(createResponseMap.get("id").toString());
+
+        mockMvc.perform(post("/api/leaves/{id}/reject", leaveRequestId)
+                        .header("Authorization", "Bearer " + hrToken)
+                        .param("comments", "Red edildi (audit)")
+                        .with(csrf()))
+                .andExpect(status().isOk());
+
+        var histories = leaveApprovalHistoryRepository.findAll();
+        assertEquals(1, histories.size());
+        assertEquals(RequestStatus.REJECTED, histories.get(0).getAction());
+        assertEquals("Red edildi (audit)", histories.get(0).getComments());
+        assertEquals(leaveRequestId, histories.get(0).getLeaveRequest().getId());
+        assertEquals(hrUser.getId(), histories.get(0).getApprover().getId());
     }
 
     @Test
