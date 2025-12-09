@@ -6,6 +6,7 @@ import com.cozumtr.leave_management_system.dto.response.LeaveTypeResponse;
 import com.cozumtr.leave_management_system.dto.response.LeaveApprovalHistoryResponse;
 import com.cozumtr.leave_management_system.dto.response.MessageResponseDto;
 import com.cozumtr.leave_management_system.dto.response.TeamLeaveResponseDTO;
+import com.cozumtr.leave_management_system.dto.response.ManagerLeaveResponseDTO;
 import com.cozumtr.leave_management_system.service.EmployeeService;
 import com.cozumtr.leave_management_system.service.LeaveRequestService;
 import com.cozumtr.leave_management_system.service.LeaveTypeService;
@@ -92,6 +93,13 @@ public class LeaveRequestController {
         return ResponseEntity.ok(response);
     }
 
+    @PreAuthorize("hasAnyRole('MANAGER','HR','CEO')")
+    @GetMapping("/manager/dashboard")
+    public ResponseEntity<List<ManagerLeaveResponseDTO>> getManagerDashboard() {
+        List<ManagerLeaveResponseDTO> responses = leaveRequestService.getManagerDashboardRequests();
+        return ResponseEntity.ok(responses);
+    }
+
     // --- EKİP İZİN TAKİBİ (TEAM VISIBILITY) ---
     @PreAuthorize("hasRole('EMPLOYEE')")
     @GetMapping("/team-calendar")
@@ -99,5 +107,12 @@ public class LeaveRequestController {
         Long currentEmployeeId = employeeService.getCurrentEmployeeId();
         List<TeamLeaveResponseDTO> teamLeaves = leaveRequestService.getTeamApprovedLeaves(currentEmployeeId);
         return ResponseEntity.ok(teamLeaves);
+    }
+
+    @PreAuthorize("hasAnyRole('HR','CEO')")
+    @GetMapping("/company-current")
+    public ResponseEntity<List<TeamLeaveResponseDTO>> getCompanyCurrentLeaves() {
+        List<TeamLeaveResponseDTO> leaves = leaveRequestService.getCompanyCurrentApprovedLeaves();
+        return ResponseEntity.ok(leaves);
     }
 }
