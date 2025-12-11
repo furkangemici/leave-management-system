@@ -102,7 +102,7 @@ public class AuthController {
      */
     @PostMapping("/forgot-password")
     public ResponseEntity<MessageResponseDto> forgotPassword(@Valid @RequestBody ForgotPasswordRequestDto request) {
-        authService.forgotPassword(request.getEmail());
+        authService.forgotPassword(request.getEmail(), request.getChannel(), request.getPhoneNumber());
         // Güvenlik: Kullanıcı yoksa bile "Email gönderildi" mesajı döner
         MessageResponseDto response = MessageResponseDto.builder()
                 .message("Eğer böyle bir kullanıcı varsa, şifre sıfırlama linki email adresinize gönderilmiştir.")

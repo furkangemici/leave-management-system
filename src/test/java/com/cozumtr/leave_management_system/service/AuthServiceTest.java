@@ -12,6 +12,10 @@ import com.cozumtr.leave_management_system.entities.Role;
 
 import com.cozumtr.leave_management_system.entities.User;
 
+import com.cozumtr.leave_management_system.enums.NotificationChannel;
+
+import com.cozumtr.leave_management_system.exception.BusinessException;
+
 import com.cozumtr.leave_management_system.repository.DepartmentRepository;
 
 import com.cozumtr.leave_management_system.repository.EmployeeRepository;
@@ -57,6 +61,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 
 import static org.mockito.ArgumentMatchers.anyString;
+
+import static org.mockito.ArgumentMatchers.anySet;
 
 import static org.mockito.Mockito.*;
 
@@ -110,6 +116,10 @@ class AuthServiceTest {
 
     private EmailService emailService;
 
+    @Mock
+
+    private SmsService smsService;
+
 
 
     @Mock
@@ -147,6 +157,7 @@ class AuthServiceTest {
         testEmployee.setLastName("User");
 
         testEmployee.setIsActive(true);
+        testEmployee.setPhoneNumber("+905551112233");
 
 
 
@@ -186,7 +197,7 @@ class AuthServiceTest {
 
         // When
 
-        authService.forgotPassword(email);
+        authService.forgotPassword(email, NotificationChannel.EMAIL, null);
 
 
 
@@ -197,6 +208,7 @@ class AuthServiceTest {
         verify(userRepository, times(1)).save(any(User.class));
 
         verify(emailService, times(1)).sendPasswordResetEmail(eq(email), anyString());
+        verify(smsService, never()).sendSms(anyString(), anyString());
 
         assertNotNull(testUser.getPasswordResetToken());
 
@@ -222,11 +234,85 @@ class AuthServiceTest {
 
         // When & Then
 
-        assertDoesNotThrow(() -> authService.forgotPassword(email));
+        assertDoesNotThrow(() -> authService.forgotPassword(email, NotificationChannel.EMAIL, null));
 
         verify(userRepository, times(1)).findByEmployeeEmail(email);
 
         verify(userRepository, never()).save(any(User.class));
+
+        verify(emailService, never()).sendPasswordResetEmail(anyString(), anyString());
+
+        verify(smsService, never()).sendSms(anyString(), anyString());
+
+    }
+
+
+
+    @Test
+
+    @DisplayName("forgotPassword - SMS kanalı, telefon eşleşirse token ve SMS gönderir")
+
+    void testForgotPassword_SmsChannel_WithMatchingPhone_SendsSms() {
+
+        // Given
+
+        String email = "test@sirket.com";
+
+        when(userRepository.findByEmployeeEmail(email)).thenReturn(Optional.of(testUser));
+
+        when(userRepository.save(any(User.class))).thenReturn(testUser);
+
+
+
+        // When
+
+        authService.forgotPassword(email, NotificationChannel.SMS, "+905551112233");
+
+
+
+        // Then
+
+        verify(userRepository, times(1)).save(any(User.class));
+
+        verify(smsService, times(1)).sendSms(eq("+905551112233"), anyString());
+
+        verify(emailService, never()).sendPasswordResetEmail(anyString(), anyString());
+
+        assertNotNull(testUser.getPasswordResetToken());
+
+        assertNotNull(testUser.getPasswordResetExpires());
+
+    }
+
+
+
+    @Test
+
+    @DisplayName("forgotPassword - SMS kanalı, telefon eşleşmezse BusinessException fırlatır")
+
+    void testForgotPassword_SmsChannel_WithMismatchedPhone_Throws() {
+
+        // Given
+
+        String email = "test@sirket.com";
+
+        when(userRepository.findByEmployeeEmail(email)).thenReturn(Optional.of(testUser));
+
+
+
+        // When & Then
+
+        assertThrows(BusinessException.class, () ->
+
+                authService.forgotPassword(email, NotificationChannel.SMS, "+905500000000"));
+
+
+
+        verify(userRepository, times(1)).findByEmployeeEmail(email);
+
+        verify(userRepository, never()).save(any(User.class));
+
+        verify(smsService, never()).sendSms(anyString(), anyString());
 
         verify(emailService, never()).sendPasswordResetEmail(anyString(), anyString());
 
@@ -252,7 +338,7 @@ class AuthServiceTest {
 
         // When
 
-        authService.forgotPassword(email);
+        authService.forgotPassword(email, NotificationChannel.EMAIL, null);
 
 
 
@@ -263,6 +349,8 @@ class AuthServiceTest {
         verify(userRepository, never()).save(any(User.class));
 
         verify(emailService, never()).sendPasswordResetEmail(anyString(), anyString());
+
+        verify(smsService, never()).sendSms(anyString(), anyString());
 
     }
 
@@ -728,7 +816,7 @@ class AuthServiceTest {
 
         when(userRepository.save(any(User.class))).thenReturn(testUser);
 
-        when(jwtService.generateToken(eq(email), eq(1L), any(Set.class))).thenReturn(jwtToken);
+        when(jwtService.generateToken(eq(email), eq(1L), anySet())).thenReturn(jwtToken);
 
 
 
@@ -1002,7 +1090,7 @@ class AuthServiceTest {
 
         when(userRepository.save(any(User.class))).thenReturn(testUser);
 
-        when(jwtService.generateToken(anyString(), anyLong(), any(Set.class))).thenReturn("token");
+        when(jwtService.generateToken(anyString(), anyLong(), anySet())).thenReturn("token");
 
 
 
