@@ -23,6 +23,8 @@ public class LeaveTypeUpdateRequest {
     @NotNull(message = "Yıllık izinden düşme durumu belirtilmelidir")
     private Boolean deductsFromAnnual;
 
+    private Boolean documentRequired; // null gelirse service katmanında false'a çekilecek
+
     private String workflowDefinition;
 
     @NotNull(message = "İstek birimi belirtilmelidir")

@@ -36,6 +36,11 @@ public class LeaveRequest extends BaseEntity {
     @ToString.Exclude
     private LeaveType leaveType;
 
+    // Belgeleri talep silinince koru; sadece persist/merge sırasında yay
+    @OneToMany(mappedBy = "leaveRequest", fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE}, orphanRemoval = false)
+    @ToString.Exclude
+    private List<LeaveAttachment> attachments = new ArrayList<>();
+
     // --- TALEP DETAYLARI ---
 
     @Enumerated(EnumType.STRING)

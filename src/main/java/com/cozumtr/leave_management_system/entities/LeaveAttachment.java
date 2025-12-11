@@ -2,6 +2,7 @@ package com.cozumtr.leave_management_system.entities;
 
 import jakarta.persistence.*;
 import lombok.*;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "leave_attachments")
@@ -38,4 +39,7 @@ public class LeaveAttachment extends BaseEntity {
     // İndirirken tarayıcıya "Bu bir PDF'tir" diyebilmek için lazım.
     @Column(name = "file_type", length = 50)
     private String fileType;
+
+    @Column(name = "upload_date", nullable = false)
+    private LocalDateTime uploadDate;
 }

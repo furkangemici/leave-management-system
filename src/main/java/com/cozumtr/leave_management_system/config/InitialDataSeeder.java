@@ -101,20 +101,39 @@ public class InitialDataSeeder implements CommandLineRunner {
     }
 
     private void createLeaveTypes() {
-        if (leaveTypeRepository.count() > 0) return;
+        if (leaveTypeRepository.count() == 0) {
+            createLeaveType("Yıllık İzin", true, true, false, "HR,MANAGER,CEO", RequestUnit.DAY);
+            createLeaveType("Mazeret İzni (Saatlik)", true, false, false, "MANAGER", RequestUnit.HOUR);
+            createLeaveType("Hastalık İzni (Raporlu)", false, false, true, "HR,MANAGER", RequestUnit.DAY);
+            createLeaveType("Ücretsiz İzin", false, false, false, "HR,MANAGER,CEO", RequestUnit.DAY);
+        } else {
+            updateDocumentRequiredFlags();
+        }
+    }
 
-        createLeaveType("Yıllık İzin", true, true, "HR,MANAGER,CEO", RequestUnit.DAY);
-        createLeaveType("Mazeret İzni (Saatlik)", true, false, "MANAGER", RequestUnit.HOUR);
-        createLeaveType("Hastalık İzni (Raporlu)", false, false, "HR,MANAGER", RequestUnit.DAY);
-        createLeaveType("Ücretsiz İzin", false, false, "HR,MANAGER,CEO", RequestUnit.DAY);
+    private void updateDocumentRequiredFlags() {
+        Map<String, Boolean> docRequiredMap = Map.of(
+                "Yıllık İzin", false,
+                "Mazeret İzni (Saatlik)", false,
+                "Hastalık İzni (Raporlu)", true,
+                "Ücretsiz İzin", false
+        );
+
+        docRequiredMap.forEach((name, docRequired) ->
+                leaveTypeRepository.findByName(name).ifPresent(lt -> {
+                    lt.setDocumentRequired(docRequired);
+                    leaveTypeRepository.save(lt);
+                })
+        );
     }
 
     private void createLeaveType(String name, boolean isPaid, boolean deductsFromAnnual,
-                                 String workflowDefinition, RequestUnit requestUnit) {
+                                 boolean documentRequired, String workflowDefinition, RequestUnit requestUnit) {
         LeaveType lt = new LeaveType();
         lt.setName(name);
         lt.setPaid(isPaid);
         lt.setDeductsFromAnnual(deductsFromAnnual);
+        lt.setDocumentRequired(documentRequired);
         lt.setWorkflowDefinition(workflowDefinition);
         lt.setRequestUnit(requestUnit);
         lt.setIsActive(true);

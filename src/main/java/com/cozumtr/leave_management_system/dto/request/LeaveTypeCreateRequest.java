@@ -23,6 +23,8 @@ public class LeaveTypeCreateRequest {
     @NotNull(message = "Yıllık izinden düşme durumu belirtilmelidir")
     private Boolean deductsFromAnnual;
 
+    private Boolean documentRequired; 
+
     private String workflowDefinition;
 
     @NotNull(message = "İstek birimi belirtilmelidir")
