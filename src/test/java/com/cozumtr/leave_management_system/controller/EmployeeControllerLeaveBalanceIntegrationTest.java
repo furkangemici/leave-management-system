@@ -79,11 +79,13 @@ class EmployeeControllerLeaveBalanceIntegrationTest {
         department.setIsActive(true);
         department = departmentRepository.save(department);
 
-        // Create Role
-        Role employeeRole = new Role();
-        employeeRole.setRoleName("EMPLOYEE");
-        employeeRole.setIsActive(true);
-        employeeRole = roleRepository.save(employeeRole);
+        // Create Role (idempotent)
+        Role employeeRole = roleRepository.findByRoleName("EMPLOYEE").orElseGet(() -> {
+            Role r = new Role();
+            r.setRoleName("EMPLOYEE");
+            r.setIsActive(true);
+            return roleRepository.save(r);
+        });
 
         // Create Employee - 3 yıl kıdem (14 gün izin hakkı)
         testEmployee = new Employee();

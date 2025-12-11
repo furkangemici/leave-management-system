@@ -44,6 +44,7 @@ class LeaveTypeServiceTest {
         testLeaveType.setName("Yıllık İzin");
         testLeaveType.setPaid(true);
         testLeaveType.setDeductsFromAnnual(true);
+        testLeaveType.setDocumentRequired(false);
         testLeaveType.setWorkflowDefinition("ROLE_MANAGER,ROLE_HR");
         testLeaveType.setRequestUnit(RequestUnit.DAY);
         testLeaveType.setIsActive(true);
@@ -52,6 +53,7 @@ class LeaveTypeServiceTest {
                 .name("Mazeret İzni")
                 .isPaid(false)
                 .deductsFromAnnual(false)
+                .documentRequired(true)
                 .workflowDefinition("ROLE_MANAGER")
                 .requestUnit(RequestUnit.HOUR)
                 .build();
@@ -60,6 +62,7 @@ class LeaveTypeServiceTest {
                 .name("Güncellenmiş İzin")
                 .isPaid(true)
                 .deductsFromAnnual(true)
+                .documentRequired(false)
                 .workflowDefinition("ROLE_MANAGER")
                 .requestUnit(RequestUnit.DAY)
                 .build();
@@ -86,6 +89,7 @@ class LeaveTypeServiceTest {
         assertEquals(createRequest.getName(), response.getName());
         assertEquals(createRequest.getIsPaid(), response.getIsPaid());
         assertEquals(createRequest.getDeductsFromAnnual(), response.getDeductsFromAnnual());
+        assertEquals(createRequest.getDocumentRequired(), response.getDocumentRequired());
         assertEquals(createRequest.getWorkflowDefinition(), response.getWorkflowDefinition());
         assertEquals(createRequest.getRequestUnit().name(), response.getRequestUnit());
         verify(leaveTypeRepository).findByName(createRequest.getName());
@@ -167,6 +171,7 @@ class LeaveTypeServiceTest {
         assertNotNull(response);
         assertEquals(testLeaveType.getId(), response.getId());
         assertEquals(testLeaveType.getName(), response.getName());
+        assertEquals(testLeaveType.isDocumentRequired(), response.getDocumentRequired());
         verify(leaveTypeRepository).findById(1L);
     }
 
@@ -200,6 +205,12 @@ class LeaveTypeServiceTest {
 
         // Assert
         assertNotNull(response);
+        assertEquals(updateRequest.getName(), response.getName());
+        assertEquals(updateRequest.getIsPaid(), response.getIsPaid());
+        assertEquals(updateRequest.getDeductsFromAnnual(), response.getDeductsFromAnnual());
+        assertEquals(updateRequest.getDocumentRequired(), response.getDocumentRequired());
+        assertEquals(updateRequest.getWorkflowDefinition(), response.getWorkflowDefinition());
+        assertEquals(updateRequest.getRequestUnit().name(), response.getRequestUnit());
         verify(leaveTypeRepository).findById(1L);
         verify(leaveTypeRepository).findByName(updateRequest.getName());
         verify(leaveTypeRepository).save(any(LeaveType.class));
@@ -219,6 +230,7 @@ class LeaveTypeServiceTest {
 
         // Assert
         assertNotNull(response);
+        assertEquals(testLeaveType.isDocumentRequired(), response.getDocumentRequired());
         verify(leaveTypeRepository).findById(1L);
         verify(leaveTypeRepository).findByName(testLeaveType.getName());
         verify(leaveTypeRepository).save(any(LeaveType.class));
