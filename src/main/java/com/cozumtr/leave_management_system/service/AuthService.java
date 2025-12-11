@@ -9,6 +9,7 @@ import com.cozumtr.leave_management_system.entities.Department;
 import com.cozumtr.leave_management_system.entities.Employee;
 import com.cozumtr.leave_management_system.entities.Role;
 import com.cozumtr.leave_management_system.entities.User;
+import com.cozumtr.leave_management_system.enums.NotificationChannel;
 import com.cozumtr.leave_management_system.repository.DepartmentRepository;
 import com.cozumtr.leave_management_system.repository.EmployeeRepository;
 import com.cozumtr.leave_management_system.repository.RoleRepository;
@@ -41,6 +42,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final EmailService emailService;
     private final AuthenticationManager authenticationManager;
+    private final SmsService smsService;
 
     /**
      * 1. KULLANICI GİRİŞİ (login)
@@ -314,7 +316,7 @@ public class AuthService {
      * Güvenlik: Kullanıcı yoksa bile "Email gönderildi" mesajı döner
      */
     @Transactional
-    public void forgotPassword(String email) {
+    public void forgotPassword(String email, NotificationChannel channel, String phoneNumber) {
         // Kullanıcıyı bul
         Optional<User> userOptional = userRepository.findByEmployeeEmail(email);
 
@@ -333,6 +335,18 @@ public class AuthService {
             return;
         }
 
+        NotificationChannel effectiveChannel = channel != null ? channel : NotificationChannel.EMAIL;
+
+        // SMS istendiyse telefon doğrulaması yap
+        if (effectiveChannel == NotificationChannel.SMS) {
+            String registeredPhone = user.getEmployee().getPhoneNumber();
+            if (registeredPhone == null || registeredPhone.isBlank() ||
+                    phoneNumber == null || phoneNumber.isBlank() ||
+                    !registeredPhone.equals(phoneNumber)) {
+                throw new BusinessException("Telefon numarası kayıttaki ile eşleşmiyor.");
+            }
+        }
+
         // Rastgele, benzersiz bir token üret
         String resetToken = UUID.randomUUID().toString();
 
@@ -341,10 +355,18 @@ public class AuthService {
         user.setPasswordResetExpires(java.time.LocalDateTime.now().plusMinutes(15));
         userRepository.save(user);
 
-        // Email gönder
-        emailService.sendPasswordResetEmail(email, resetToken);
+        // Email gönder (isteğe bağlı kanal)
+        if (effectiveChannel == NotificationChannel.EMAIL) {
+            emailService.sendPasswordResetEmail(email, resetToken);
+        }
 
-        log.info("Şifre sıfırlama token'ı oluşturuldu ve email gönderildi: {}", email);
+        // SMS gönder (isteğe bağlı kanal)
+        if (effectiveChannel == NotificationChannel.SMS) {
+            sendSmsIfAvailable(user.getEmployee().getPhoneNumber(),
+                    String.format("Şifre sıfırlama kodun: %s (15 dk geçerli)", resetToken));
+        }
+
+        log.info("Şifre sıfırlama token'ı oluşturuldu. Kanal: {} Kullanıcı: {}", effectiveChannel, email);
     }
 
     /**
@@ -468,6 +490,14 @@ public class AuthService {
                 .managerFullName(managerFullName)
                 .dailyWorkHours(employee.getDailyWorkHours())
                 .build();
+    }
+
+    private void sendSmsIfAvailable(String phoneNumber, String message) {
+        if (phoneNumber == null || phoneNumber.isBlank()) {
+            log.info("[SMS-SKIP] Telefon numarası yok, mesaj gönderilmedi. Mesaj: {}", message);
+            return;
+        }
+        smsService.sendSms(phoneNumber, message);
     }
 }
 
