@@ -5,10 +5,12 @@ import com.cozumtr.leave_management_system.dto.response.LeaveRequestResponse;
 import com.cozumtr.leave_management_system.dto.response.LeaveTypeResponse;
 import com.cozumtr.leave_management_system.dto.response.LeaveApprovalHistoryResponse;
 import com.cozumtr.leave_management_system.dto.response.MessageResponseDto;
+import com.cozumtr.leave_management_system.dto.response.AttachmentResponse;
 import com.cozumtr.leave_management_system.dto.response.TeamLeaveResponseDTO;
 import com.cozumtr.leave_management_system.dto.response.ManagerLeaveResponseDTO;
 import com.cozumtr.leave_management_system.service.EmployeeService;
 import com.cozumtr.leave_management_system.service.LeaveRequestService;
+import com.cozumtr.leave_management_system.service.LeaveAttachmentService;
 import com.cozumtr.leave_management_system.service.LeaveTypeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +18,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.MediaType;
+import org.springframework.core.io.Resource;
 
 import java.util.List;
 
@@ -25,6 +30,7 @@ import java.util.List;
 public class LeaveRequestController {
 
     private final LeaveRequestService leaveRequestService;
+    private final LeaveAttachmentService leaveAttachmentService;
     private final LeaveTypeService leaveTypeService;
     private final EmployeeService employeeService;
 
@@ -46,10 +52,21 @@ public class LeaveRequestController {
 
     // --- İZİN TALEBİ OLUŞTURMA ---
     @PreAuthorize("hasRole('EMPLOYEE')")
-    @PostMapping
-    public ResponseEntity<LeaveRequestResponse> createLeaveRequest(@Valid @RequestBody CreateLeaveRequest request) {
-        LeaveRequestResponse response = leaveRequestService.createLeaveRequest(request);
-        // 201 Created (Oluşturuldu) kodu ile dönüyoruz
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<LeaveRequestResponse> createLeaveRequestJson(
+            @Valid @RequestBody CreateLeaveRequest request
+    ) {
+        LeaveRequestResponse response = leaveRequestService.createLeaveRequest(request, null);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PreAuthorize("hasRole('EMPLOYEE')")
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<LeaveRequestResponse> createLeaveRequestMultipart(
+            @Valid @RequestPart("request") CreateLeaveRequest request,
+            @RequestPart(value = "file", required = false) MultipartFile file
+    ) {
+        LeaveRequestResponse response = leaveRequestService.createLeaveRequest(request, file);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -71,6 +88,32 @@ public class LeaveRequestController {
     public ResponseEntity<List<LeaveTypeResponse>> getAllLeaveTypes() {
         List<LeaveTypeResponse> leaveTypes = leaveTypeService.getAllActiveLeaveTypes();
         return ResponseEntity.ok(leaveTypes);
+    }
+
+    @PreAuthorize("hasAnyRole('EMPLOYEE','HR','MANAGER','CEO')")
+    @GetMapping("/{leaveRequestId}/attachments")
+    public ResponseEntity<List<AttachmentResponse>> listAttachments(@PathVariable Long leaveRequestId) {
+        List<AttachmentResponse> attachments = leaveAttachmentService.listAttachments(leaveRequestId);
+        return ResponseEntity.ok(attachments);
+    }
+
+    @PreAuthorize("hasAnyRole('EMPLOYEE','HR','MANAGER','CEO')")
+    @PostMapping("/{leaveRequestId}/attachments")
+    public ResponseEntity<MessageResponseDto> uploadAttachment(
+            @PathVariable Long leaveRequestId,
+            @RequestPart("file") MultipartFile file
+    ) {
+        leaveAttachmentService.uploadAttachment(leaveRequestId, file);
+        MessageResponseDto response = MessageResponseDto.builder()
+                .message("Dosya başarıyla yüklendi.")
+                .build();
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PreAuthorize("hasAnyRole('EMPLOYEE','HR','MANAGER','CEO')")
+    @GetMapping("/attachments/{attachmentId}/download")
+    public ResponseEntity<Resource> downloadAttachment(@PathVariable Long attachmentId) {
+        return leaveAttachmentService.downloadAttachment(attachmentId);
     }
 
     // --- İZİN TALEBİNİ ONAYLA ---

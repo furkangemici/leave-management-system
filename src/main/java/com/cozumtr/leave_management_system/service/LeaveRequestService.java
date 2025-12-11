@@ -8,6 +8,7 @@ import com.cozumtr.leave_management_system.dto.response.SprintOverlapReportDTO;
 import com.cozumtr.leave_management_system.dto.response.OverlappingLeaveDetailDTO;
 import com.cozumtr.leave_management_system.entities.Employee;
 import com.cozumtr.leave_management_system.entities.LeaveApprovalHistory;
+import com.cozumtr.leave_management_system.entities.LeaveAttachment;
 import com.cozumtr.leave_management_system.entities.LeaveEntitlement;
 import com.cozumtr.leave_management_system.entities.LeaveRequest;
 import com.cozumtr.leave_management_system.entities.LeaveType;
@@ -27,6 +28,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
@@ -49,10 +51,11 @@ public class LeaveRequestService {
     private final LeaveApprovalHistoryRepository leaveApprovalHistoryRepository;
     private final PublicHolidayRepository publicHolidayRepository;
     private final UserRepository userRepository;
+    private final com.cozumtr.leave_management_system.service.LeaveAttachmentService leaveAttachmentService;
 
     // --- İZİN TALEBİ OLUŞTURMA ---
     @Transactional
-    public LeaveRequestResponse createLeaveRequest(CreateLeaveRequest request) {
+    public LeaveRequestResponse createLeaveRequest(CreateLeaveRequest request, MultipartFile file) {
         // 1. Güvenlik: Giriş yapanı bul
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         Employee employee = employeeRepository.findByEmail(email)
@@ -78,6 +81,10 @@ public class LeaveRequestService {
         // 4. İzin Türü ve Süre Hesaplama
         LeaveType leaveType = leaveTypeRepository.findById(request.getLeaveTypeId())
                 .orElseThrow(() -> new EntityNotFoundException("Geçersiz İzin Türü ID: " + request.getLeaveTypeId()));
+
+        if (leaveType.isDocumentRequired() && (file == null || file.isEmpty())) {
+            throw new BusinessException("Bu izin türü için belge yüklemek zorunludur.");
+        }
 
         BigDecimal duration;
         
@@ -154,7 +161,16 @@ public class LeaveRequestService {
 
         LeaveRequest savedRequest = leaveRequestRepository.save(leaveRequest);
 
+        if (file != null && !file.isEmpty()) {
+            leaveAttachmentService.uploadAttachment(savedRequest.getId(), file);
+        }
+
         return mapToResponse(savedRequest);
+    }
+
+    @Transactional
+    public LeaveRequestResponse createLeaveRequest(CreateLeaveRequest request) {
+        return createLeaveRequest(request, null);
     }
 
     // ---  İZİN İPTALİ  ---
@@ -206,6 +222,8 @@ public class LeaveRequestService {
         // 2. İzin talebini bul
         LeaveRequest leaveRequest = leaveRequestRepository.findById(requestId)
                 .orElseThrow(() -> new EntityNotFoundException("İzin talebi bulunamadı ID: " + requestId));
+
+        ensureRequiredDocumentIfNeeded(leaveRequest);
 
         // 3. Durum kontrolü
         if (leaveRequest.getRequestStatus() == RequestStatus.APPROVED) {
@@ -715,6 +733,16 @@ public class LeaveRequestService {
         return leaves.stream()
                 .map(this::mapToTeamLeaveResponse)
                 .collect(Collectors.toList());
+    }
+
+    private void ensureRequiredDocumentIfNeeded(LeaveRequest leaveRequest) {
+        LeaveType leaveType = leaveRequest.getLeaveType();
+        if (leaveType != null && leaveType.isDocumentRequired()) {
+            List<LeaveAttachment> attachments = leaveRequest.getAttachments();
+            if (attachments == null || attachments.isEmpty()) {
+                throw new BusinessException("Bu izin türü için zorunlu olan rapor eksiktir.");
+            }
+        }
     }
 
     /**

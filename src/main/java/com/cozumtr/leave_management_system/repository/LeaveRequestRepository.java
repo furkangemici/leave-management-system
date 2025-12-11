@@ -147,4 +147,31 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
             @Param("sprintStart") LocalDateTime sprintStart,
             @Param("sprintEnd") LocalDateTime sprintEnd
     );
+
+    // 9. MUHASEBE RAPORU - Tarih aralığında onaylı izinleri, ücretli/ücretsiz ve belge zorunluluğu filtreleriyle getirir
+    // onlyUnpaid=true  -> sadece isPaid=false türler
+    // documentRequired=true -> sadece documentRequired=true türler
+    // departmentId / employeeId opsiyoneldir
+    @Query("""
+            SELECT lr FROM LeaveRequest lr
+            JOIN FETCH lr.employee e
+            JOIN FETCH e.department d
+            JOIN FETCH lr.leaveType lt
+            WHERE lr.requestStatus IN :statuses
+              AND lr.startDateTime >= :startDate
+              AND lr.endDateTime <= :endDate
+              AND (:onlyUnpaid = false OR lt.isPaid = false)
+              AND (:documentRequired = false OR lt.documentRequired = true)
+              AND (:departmentId IS NULL OR d.id = :departmentId)
+              AND (:employeeId IS NULL OR e.id = :employeeId)
+            """)
+    List<LeaveRequest> findForAccountingReport(
+            @Param("statuses") List<RequestStatus> statuses,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("onlyUnpaid") boolean onlyUnpaid,
+            @Param("documentRequired") boolean documentRequired,
+            @Param("departmentId") Long departmentId,
+            @Param("employeeId") Long employeeId
+    );
 }

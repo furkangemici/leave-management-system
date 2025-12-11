@@ -27,6 +27,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.mock.web.MockMultipartFile;
 
 
 import java.math.BigDecimal;
@@ -57,6 +58,8 @@ class LeaveRequestServiceTest {
     private LeaveCalculationService leaveCalculationService;
     @Mock
     private LeaveEntitlementRepository leaveEntitlementRepository;
+    @Mock
+    private LeaveAttachmentService leaveAttachmentService;
     @Mock
     private SecurityContext securityContext;
     @Mock
@@ -151,6 +154,56 @@ class LeaveRequestServiceTest {
         assertEquals("HR", response.getWorkflowNextApproverRole());
         assertEquals("Aile ziyareti", response.getReason());
         verify(leaveRequestRepository).save(any(LeaveRequest.class));
+    }
+
+    @Test
+    @DisplayName("createLeaveRequest - Belge zorunlu tür için dosya yoksa BusinessException fırlatmalı")
+    void createLeaveRequest_DocumentRequired_NoFile_ShouldThrowBusinessException() {
+        // Arrange
+        testLeaveType.setDocumentRequired(true);
+        String email = "test@example.com";
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+        when(authentication.getName()).thenReturn(email);
+        when(employeeRepository.findByEmail(email)).thenReturn(Optional.of(testEmployee));
+        when(leaveTypeRepository.findById(1L)).thenReturn(Optional.of(testLeaveType));
+
+        // Act & Assert
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> leaveRequestService.createLeaveRequest(createRequest, null));
+        assertTrue(ex.getMessage().contains("belge yüklemek zorunludur"));
+        verify(leaveRequestRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("createLeaveRequest - Belge zorunlu tür için dosya varsa başarıyla oluşturmalı ve upload çağrılmalı")
+    void createLeaveRequest_DocumentRequired_WithFile_ShouldCreateAndUpload() {
+        // Arrange
+        testLeaveType.setDocumentRequired(true);
+        String email = "test@example.com";
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+        when(authentication.getName()).thenReturn(email);
+        when(employeeRepository.findByEmail(email)).thenReturn(Optional.of(testEmployee));
+        when(leaveTypeRepository.findById(1L)).thenReturn(Optional.of(testLeaveType));
+        when(leaveRequestRepository.existsByEmployeeAndDateRangeOverlap(anyLong(), any(), any(), anyList())).thenReturn(false);
+        when(leaveCalculationService.calculateDuration(any(), any(), any())).thenReturn(new BigDecimal("16.0"));
+        when(leaveEntitlementRepository.findByEmployeeIdAndYear(anyLong(), anyInt())).thenReturn(Optional.of(testEntitlement));
+        when(leaveRequestRepository.save(any(LeaveRequest.class))).thenAnswer(invocation -> {
+            LeaveRequest req = invocation.getArgument(0);
+            req.setId(200L);
+            return req;
+        });
+
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "rapor.pdf", "application/pdf", "dummy".getBytes()
+        );
+
+        // Act
+        LeaveRequestResponse response = leaveRequestService.createLeaveRequest(createRequest, file);
+
+        // Assert
+        assertNotNull(response);
+        assertEquals(200L, response.getId());
+        verify(leaveAttachmentService).uploadAttachment(200L, file);
     }
 
 

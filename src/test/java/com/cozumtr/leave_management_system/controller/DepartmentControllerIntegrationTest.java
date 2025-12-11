@@ -71,16 +71,9 @@ class DepartmentControllerIntegrationTest {
         departmentRepository.deleteAll();
         roleRepository.deleteAll();
 
-        // Create Roles
-        employeeRole = new Role();
-        employeeRole.setRoleName("EMPLOYEE");
-        employeeRole.setIsActive(true);
-        employeeRole = roleRepository.save(employeeRole);
-
-        hrRole = new Role();
-        hrRole.setRoleName("HR");
-        hrRole.setIsActive(true);
-        hrRole = roleRepository.save(hrRole);
+        // Create Roles (idempotent)
+        employeeRole = getOrCreateRole("EMPLOYEE");
+        hrRole = getOrCreateRole("HR");
 
         // Create Department
         testDepartment = new Department();
@@ -149,6 +142,15 @@ class DepartmentControllerIntegrationTest {
         // Get tokens
         hrToken = loginAndGetToken("hr.user@example.com", "Password123!");
         employeeToken = loginAndGetToken("employee@example.com", "Password123!");
+    }
+
+    private Role getOrCreateRole(String roleName) {
+        return roleRepository.findByRoleName(roleName).orElseGet(() -> {
+            Role r = new Role();
+            r.setRoleName(roleName);
+            r.setIsActive(true);
+            return roleRepository.save(r);
+        });
     }
 
     // ========== CREATE TESTS ==========

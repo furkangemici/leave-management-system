@@ -25,6 +25,9 @@ public class LeaveType extends BaseEntity {
     @Column(name = "deducts_from_annual", nullable = false)
     private boolean deductsFromAnnual = true;
 
+    @Column(name = "document_required", nullable = false, columnDefinition = "boolean default false")
+    private boolean documentRequired = false;
+
     // --- ONAY AKIŞI (WORKFLOW) ---
 
     // SQL: NVARCHAR(MAX)

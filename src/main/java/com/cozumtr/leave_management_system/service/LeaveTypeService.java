@@ -63,6 +63,7 @@ public class LeaveTypeService {
         leaveType.setName(request.getName());
         leaveType.setPaid(request.getIsPaid());
         leaveType.setDeductsFromAnnual(request.getDeductsFromAnnual());
+        leaveType.setDocumentRequired(Boolean.TRUE.equals(request.getDocumentRequired()));
         leaveType.setWorkflowDefinition(request.getWorkflowDefinition());
         leaveType.setRequestUnit(request.getRequestUnit());
         leaveType.setIsActive(true);
@@ -91,6 +92,7 @@ public class LeaveTypeService {
         leaveType.setName(request.getName());
         leaveType.setPaid(request.getIsPaid());
         leaveType.setDeductsFromAnnual(request.getDeductsFromAnnual());
+        leaveType.setDocumentRequired(Boolean.TRUE.equals(request.getDocumentRequired()));
         leaveType.setWorkflowDefinition(request.getWorkflowDefinition());
         leaveType.setRequestUnit(request.getRequestUnit());
 
@@ -116,6 +118,7 @@ public class LeaveTypeService {
                 .name(leaveType.getName())
                 .isPaid(leaveType.isPaid())
                 .deductsFromAnnual(leaveType.isDeductsFromAnnual())
+                .documentRequired(leaveType.isDocumentRequired())
                 .workflowDefinition(leaveType.getWorkflowDefinition())
                 .requestUnit(leaveType.getRequestUnit() != null ? leaveType.getRequestUnit().name() : null)
                 .build();

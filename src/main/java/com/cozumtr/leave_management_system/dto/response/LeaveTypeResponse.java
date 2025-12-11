@@ -16,6 +16,7 @@ public class LeaveTypeResponse {
     private String name;
     private Boolean isPaid;
     private Boolean deductsFromAnnual;
+    private Boolean documentRequired;
     private String workflowDefinition;
     private String requestUnit;
 }
