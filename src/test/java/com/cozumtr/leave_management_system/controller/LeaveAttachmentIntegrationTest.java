@@ -28,6 +28,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -107,11 +109,35 @@ class LeaveAttachmentIntegrationTest {
         leaveTypeRepository.save(documentRequiredLeave);
     }
 
+    /**
+     * Hafta içi bir gün döndürür (Pazartesi-Cuma).
+     */
+    private LocalDate getNextWeekday(LocalDate from) {
+        LocalDate date = from.plusDays(1);
+        while (date.getDayOfWeek() == DayOfWeek.SATURDAY || date.getDayOfWeek() == DayOfWeek.SUNDAY) {
+            date = date.plusDays(1);
+        }
+        return date;
+    }
+    
+    /**
+     * Belirtilen günden itibaren N gün sonraki hafta içi günü döndürür.
+     */
+    private LocalDate getNextWeekdayAfterDays(LocalDate from, int days) {
+        LocalDate date = from.plusDays(days);
+        while (date.getDayOfWeek() == DayOfWeek.SATURDAY || date.getDayOfWeek() == DayOfWeek.SUNDAY) {
+            date = date.plusDays(1);
+        }
+        return date;
+    }
+
     private CreateLeaveRequest buildRequestDto() {
         CreateLeaveRequest dto = new CreateLeaveRequest();
         dto.setLeaveTypeId(documentRequiredLeave.getId());
-        dto.setStartDate(LocalDateTime.now().plusDays(1));
-        dto.setEndDate(LocalDateTime.now().plusDays(2));
+        LocalDate startDateLocal = getNextWeekday(LocalDate.now());
+        LocalDate endDateLocal = getNextWeekdayAfterDays(startDateLocal, 1);
+        dto.setStartDate(startDateLocal.atTime(9, 0));
+        dto.setEndDate(endDateLocal.atTime(17, 0));
         dto.setReason("Sağlık raporu");
         return dto;
     }
