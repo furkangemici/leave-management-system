@@ -24,7 +24,7 @@ public class LeaveApprovalHistory extends BaseEntity {
     private LeaveRequest leaveRequest;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "employee_id", nullable = false)
+    @JoinColumn(name = "employee_id", nullable = true)  // Trigger tar
     @ToString.Exclude
     private Employee approver;
 

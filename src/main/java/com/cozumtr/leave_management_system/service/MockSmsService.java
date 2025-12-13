@@ -5,7 +5,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
 @Service
-@Profile({"dev", "default", "test"})
+@Profile({"dev", "default", "test", "integration-test"})
 @Slf4j
 public class MockSmsService implements SmsService {
 
