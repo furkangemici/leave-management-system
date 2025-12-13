@@ -46,7 +46,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 @DisplayName("AuthController Forgot Password Integration Tests")
 @SuppressWarnings("removal")
-class gAuthControllerForgotPasswordIntegrationTest {
+class AuthControllerForgotPasswordIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
