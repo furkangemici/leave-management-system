@@ -1,8 +1,10 @@
+
 package com.cozumtr.leave_management_system.service;
 
 import com.cozumtr.leave_management_system.dto.request.UpdateProfileRequest;
 import com.cozumtr.leave_management_system.dto.response.UserResponse;
 import com.cozumtr.leave_management_system.entities.Employee;
+import com.cozumtr.leave_management_system.entities.Role;
 import com.cozumtr.leave_management_system.repository.EmployeeRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -10,7 +12,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -32,7 +37,7 @@ public class EmployeeService {
 
     /**
      * Giriş yapan kullanıcının Employee ID'sini döndürür.
-     * 
+     *
      * @return Çalışan ID'si
      * @throws EntityNotFoundException Eğer çalışan bulunamazsa
      */
@@ -43,7 +48,7 @@ public class EmployeeService {
         return employee.getId();
     }
 
-  
+
     public UserResponse getMyProfile() {
         String loggedInEmail = SecurityContextHolder.getContext().getAuthentication().getName();
 
@@ -80,7 +85,7 @@ public class EmployeeService {
 
     /**
      * Employee Entity'yi UserResponse DTO'suna çevirir.
-     * 
+     *
      * @param employee Employee entity
      * @return UserResponse DTO
      */
@@ -91,8 +96,16 @@ public class EmployeeService {
         }
 
         String roleName = null;
+        Set<String> roles = Collections.emptySet();
+
         if (employee.getUser() != null && employee.getUser().getRoles() != null && !employee.getUser().getRoles().isEmpty()) {
+            // İlk rolü al (Geriye dönük uyumluluk için)
             roleName = employee.getUser().getRoles().iterator().next().getRoleName();
+
+            // Tüm rolleri al
+            roles = employee.getUser().getRoles().stream()
+                    .map(Role::getRoleName)
+                    .collect(Collectors.toSet());
         }
 
         return UserResponse.builder()
@@ -104,6 +117,7 @@ public class EmployeeService {
                 .address(employee.getAddress())
                 .departmentName(departmentName)
                 .roleName(roleName)
+                .roles(roles)
                 .build();
     }
 }

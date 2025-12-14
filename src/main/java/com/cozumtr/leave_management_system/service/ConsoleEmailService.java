@@ -20,6 +20,9 @@ public class ConsoleEmailService implements EmailService {
 
     @Value("${app.base-url:http://localhost:8080}")
     private String baseUrl;
+    
+    @Value("${app.frontend-url:http://localhost:5173}")
+    private String frontendUrl;
 
     public ConsoleEmailService(JavaMailSender mailSender) {
         this.mailSender = mailSender;
@@ -27,8 +30,8 @@ public class ConsoleEmailService implements EmailService {
 
     @Override
     public void sendActivationEmail(String email, String activationToken) {
-        // Token ve link'i her durumda log'layabilmek için metodun başında tanımla
-        String activationLink = baseUrl + "/api/auth/activate?token=" + activationToken;
+        // Frontend'in aktivasyon sayfasına yönlendiren URL
+        String activationLink = frontendUrl + "/activate-account?token=" + activationToken;
         
         try {
             SimpleMailMessage message = new SimpleMailMessage();
@@ -56,8 +59,8 @@ public class ConsoleEmailService implements EmailService {
 
     @Override
     public void sendPasswordResetEmail(String email, String resetToken) {
-        // Token ve link'i her durumda log'layabilmek için metodun başında tanımla
-        String resetLink = baseUrl + "/reset-password?token=" + resetToken;
+        // Frontend'in şifre sıfırlama sayfasına yönlendiren URL
+        String resetLink = frontendUrl + "/reset-password?token=" + resetToken;
         
         try {
             SimpleMailMessage message = new SimpleMailMessage();

@@ -39,7 +39,7 @@ class LeaveCalculationServiceTest {
         BigDecimal dailyWorkHours = new BigDecimal("8");
 
         // Mock: Bu tarih aralığında resmi tatil yok
-        when(publicHolidayRepository.findAllByDateBetween(start, end)).thenReturn(List.of());
+        when(publicHolidayRepository.findHolidaysInRange(start, end)).thenReturn(List.of());
 
         // When: İzin süresi hesaplanıyor
         BigDecimal result = leaveCalculationService.calculateDuration(start, end, dailyWorkHours);
@@ -66,15 +66,17 @@ class LeaveCalculationServiceTest {
 
         // Mock: Resmi tatil verileri hazırlanıyor
         PublicHoliday arife = new PublicHoliday();
-        arife.setDate(start);
-        arife.setHalfDay(true); // Yarım Gün Tatil (Arife)
+        arife.setStartDate(start);
+        arife.setEndDate(start);
+        arife.setIsHalfDay(true); // Yarım Gün Tatil (Arife)
 
         PublicHoliday bayram = new PublicHoliday();
-        bayram.setDate(end);
-        bayram.setHalfDay(false); // Tam Gün Tatil
+        bayram.setStartDate(end);
+        bayram.setEndDate(end);
+        bayram.setIsHalfDay(false); // Tam Gün Tatil
 
         // Mock: Bu tarih aralığındaki tüm resmi tatilleri döndür
-        when(publicHolidayRepository.findAllByDateBetween(start, end)).thenReturn(List.of(arife, bayram));
+        when(publicHolidayRepository.findHolidaysInRange(start, end)).thenReturn(List.of(arife, bayram));
 
         // When: İzin süresi hesaplanıyor
         BigDecimal result = leaveCalculationService.calculateDuration(start, end, dailyWorkHours);
@@ -101,11 +103,12 @@ class LeaveCalculationServiceTest {
 
         // Mock: Resmi tatil verisi
         PublicHoliday bayram = new PublicHoliday();
-        bayram.setDate(holidayDate);
-        bayram.setHalfDay(false); // Tam Gün Tatil
+        bayram.setStartDate(holidayDate);
+        bayram.setEndDate(holidayDate);
+        bayram.setIsHalfDay(false); // Tam Gün Tatil
 
         // Mock: Bu tarih aralığındaki resmi tatilleri döndür
-        when(publicHolidayRepository.findAllByDateBetween(holidayDate, holidayDate)).thenReturn(List.of(bayram));
+        when(publicHolidayRepository.findHolidaysInRange(holidayDate, holidayDate)).thenReturn(List.of(bayram));
 
         // When: İzin süresi hesaplanıyor
         BigDecimal result = leaveCalculationService.calculateDuration(holidayDate, holidayDate, dailyWorkHours);
@@ -130,7 +133,7 @@ class LeaveCalculationServiceTest {
         BigDecimal dailyWorkHours = new BigDecimal("8");
 
         // Mock: Bu tarih aralığında resmi tatil yok
-        when(publicHolidayRepository.findAllByDateBetween(start, end)).thenReturn(List.of());
+        when(publicHolidayRepository.findHolidaysInRange(start, end)).thenReturn(List.of());
 
         // When: İzin süresi hesaplanıyor
         BigDecimal result = leaveCalculationService.calculateDuration(start, end, dailyWorkHours);
@@ -157,11 +160,12 @@ class LeaveCalculationServiceTest {
 
         // Mock: Salı günü tam gün tatil (29 Ekim Cumhuriyet Bayramı)
         PublicHoliday bayram = new PublicHoliday();
-        bayram.setDate(LocalDate.of(2024, 10, 29)); // 29 Ekim
-        bayram.setHalfDay(false); // Tam Gün Tatil
+        bayram.setStartDate(LocalDate.of(2024, 10, 29)); // 29 Ekim
+        bayram.setEndDate(LocalDate.of(2024, 10, 29));
+        bayram.setIsHalfDay(false); // Tam Gün Tatil
 
         // Mock: Bu tarih aralığındaki resmi tatilleri döndür
-        when(publicHolidayRepository.findAllByDateBetween(start, end)).thenReturn(List.of(bayram));
+        when(publicHolidayRepository.findHolidaysInRange(start, end)).thenReturn(List.of(bayram));
 
         // When: İzin süresi hesaplanıyor
         BigDecimal result = leaveCalculationService.calculateDuration(start, end, dailyWorkHours);

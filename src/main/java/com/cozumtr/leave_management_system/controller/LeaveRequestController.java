@@ -143,6 +143,13 @@ public class LeaveRequestController {
         return ResponseEntity.ok(responses);
     }
 
+    @PreAuthorize("hasAnyRole('MANAGER','HR','CEO')")
+    @GetMapping("/manager/all-requests")
+    public ResponseEntity<List<ManagerLeaveResponseDTO>> getManagerAllRequests() {
+        List<ManagerLeaveResponseDTO> responses = leaveRequestService.getManagerAllRequests();
+        return ResponseEntity.ok(responses);
+    }
+
     // --- EKİP İZİN TAKİBİ (TEAM VISIBILITY) ---
     @PreAuthorize("hasRole('EMPLOYEE')")
     @GetMapping("/team-calendar")

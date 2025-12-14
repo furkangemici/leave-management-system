@@ -107,7 +107,7 @@ class LeaveRequestServiceHourlyLeaveValidationTest {
         });
 
         assertTrue(exception.getMessage().contains("hafta sonu günlerinde alınamaz"));
-        verify(publicHolidayRepository, never()).existsByDate(any());
+        verify(publicHolidayRepository, never()).existsByDateInRange(any());
         verify(leaveRequestRepository, never()).save(any());
     }
 
@@ -129,7 +129,7 @@ class LeaveRequestServiceHourlyLeaveValidationTest {
         });
 
         assertTrue(exception.getMessage().contains("hafta sonu günlerinde alınamaz"));
-        verify(publicHolidayRepository, never()).existsByDate(any());
+        verify(publicHolidayRepository, never()).existsByDateInRange(any());
         verify(leaveRequestRepository, never()).save(any());
     }
 
@@ -145,7 +145,7 @@ class LeaveRequestServiceHourlyLeaveValidationTest {
                 .thenReturn(Optional.of(testEmployee));
         when(leaveTypeRepository.findById(3L))
                 .thenReturn(Optional.of(hourlyLeaveType));
-        when(publicHolidayRepository.existsByDate(holidayDate))
+        when(publicHolidayRepository.existsByDateInRange(holidayDate))
                 .thenReturn(true); // Resmi tatil
 
         // When & Then
@@ -154,7 +154,7 @@ class LeaveRequestServiceHourlyLeaveValidationTest {
         });
 
         assertTrue(exception.getMessage().contains("resmi tatil günlerinde alınamaz"));
-        verify(publicHolidayRepository, atLeastOnce()).existsByDate(holidayDate);
+        verify(publicHolidayRepository, atLeastOnce()).existsByDateInRange(holidayDate);
         verify(leaveRequestRepository, never()).save(any());
     }
 
@@ -171,9 +171,9 @@ class LeaveRequestServiceHourlyLeaveValidationTest {
                 .thenReturn(Optional.of(testEmployee));
         when(leaveTypeRepository.findById(3L))
                 .thenReturn(Optional.of(hourlyLeaveType));
-        when(publicHolidayRepository.existsByDate(startDate))
+        when(publicHolidayRepository.existsByDateInRange(startDate))
                 .thenReturn(false); // Başlangıç tatil değil
-        when(publicHolidayRepository.existsByDate(holidayDate))
+        when(publicHolidayRepository.existsByDateInRange(holidayDate))
                 .thenReturn(true); // Bitiş resmi tatil
 
         // When & Then
@@ -182,8 +182,8 @@ class LeaveRequestServiceHourlyLeaveValidationTest {
         });
 
         assertTrue(exception.getMessage().contains("resmi tatil günlerinde alınamaz"));
-        verify(publicHolidayRepository).existsByDate(startDate);
-        verify(publicHolidayRepository).existsByDate(holidayDate);
+        verify(publicHolidayRepository).existsByDateInRange(startDate);
+        verify(publicHolidayRepository).existsByDateInRange(holidayDate);
         verify(leaveRequestRepository, never()).save(any());
     }
 
@@ -199,7 +199,7 @@ class LeaveRequestServiceHourlyLeaveValidationTest {
                 .thenReturn(Optional.of(testEmployee));
         when(leaveTypeRepository.findById(3L))
                 .thenReturn(Optional.of(hourlyLeaveType));
-        when(publicHolidayRepository.existsByDate(workingDate))
+        when(publicHolidayRepository.existsByDateInRange(workingDate))
                 .thenReturn(false); // Tatil değil
         when(leaveRequestRepository.existsByEmployeeAndDateRangeOverlap(
                 anyLong(), any(LocalDateTime.class), any(LocalDateTime.class), anyList()))
@@ -211,7 +211,8 @@ class LeaveRequestServiceHourlyLeaveValidationTest {
             leaveRequestService.createLeaveRequest(createRequest);
         });
 
-        verify(publicHolidayRepository).existsByDate(workingDate);
+        verify(publicHolidayRepository).existsByDateInRange(workingDate);
         verify(leaveRequestRepository, times(1)).save(any());
     }
 }
+

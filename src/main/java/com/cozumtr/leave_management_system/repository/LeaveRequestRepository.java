@@ -174,4 +174,23 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
             @Param("departmentId") Long departmentId,
             @Param("employeeId") Long employeeId
     );
+
+    @Query("""
+            SELECT lr FROM LeaveRequest lr
+            JOIN FETCH lr.employee e
+            JOIN FETCH e.department d
+            JOIN FETCH lr.leaveType lt
+            WHERE e.department.id = :departmentId
+            ORDER BY lr.startDateTime DESC
+            """)
+    List<LeaveRequest> findAllByDepartmentId(@Param("departmentId") Long departmentId);
+
+    @Query("""
+            SELECT lr FROM LeaveRequest lr
+            JOIN FETCH lr.employee e
+            JOIN FETCH e.department d
+            JOIN FETCH lr.leaveType lt
+            ORDER BY lr.startDateTime DESC
+            """)
+    List<LeaveRequest> findAllWithDetails();
 }

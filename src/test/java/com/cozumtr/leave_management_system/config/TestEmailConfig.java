@@ -6,8 +6,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 
 /**
- * Test profilinde email gönderimini gerçek SMTP üzerinden yapmamak için
- * basit bir stub EmailService tanımı.
+ * Test profilinde email gÃ¶nderimini gerÃ§ek SMTP Ã¼zerinden yapmamak iÃ§in
+ * basit bir stub EmailService tanÄ±mÄ±.
  */
 @Configuration
 @Profile("test")
@@ -18,15 +18,16 @@ public class TestEmailConfig {
         return new EmailService() {
             @Override
             public void sendActivationEmail(String email, String activationToken) {
-                // no-op - test ortamında gerçek mail gönderilmez
+                // no-op - test ortamÄ±nda gerÃ§ek mail gÃ¶nderilmez
             }
 
             @Override
             public void sendPasswordResetEmail(String email, String resetToken) {
-                // no-op - test ortamında gerçek mail gönderilmez
+                // no-op - test ortamÄ±nda gerÃ§ek mail gÃ¶nderilmez
             }
         };
     }
 }
+
 
 

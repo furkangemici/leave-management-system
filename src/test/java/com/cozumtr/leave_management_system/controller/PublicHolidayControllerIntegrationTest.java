@@ -230,9 +230,11 @@ class PublicHolidayControllerIntegrationTest {
     void createPublicHoliday_DuplicateDate_ShouldReturnBadRequest() throws Exception {
         // Önce bir public holiday oluştur
         PublicHoliday existing = new PublicHoliday();
-        existing.setDate(futureDate);
+        existing.setStartDate(futureDate);
+        existing.setEndDate(futureDate);
+        existing.setYear(futureDate.getYear());
         existing.setName("Mevcut Tatil");
-        existing.setHalfDay(false);
+        existing.setIsHalfDay(false);
         existing.setIsActive(true);
         publicHolidayRepository.save(existing);
 
@@ -257,16 +259,20 @@ class PublicHolidayControllerIntegrationTest {
     @DisplayName("GET /api/metadata/public-holidays - HR rolü ile tüm resmi tatilleri getirir")
     void getAllPublicHolidays_WithHrRole_ShouldReturnAll() throws Exception {
         PublicHoliday holiday1 = new PublicHoliday();
-        holiday1.setDate(futureDate);
+        holiday1.setStartDate(futureDate);
+        holiday1.setEndDate(futureDate);
+        holiday1.setYear(futureDate.getYear());
         holiday1.setName("Yeni Yıl");
-        holiday1.setHalfDay(false);
+        holiday1.setIsHalfDay(false);
         holiday1.setIsActive(true);
         publicHolidayRepository.save(holiday1);
 
         PublicHoliday holiday2 = new PublicHoliday();
-        holiday2.setDate(futureDate.plusDays(10));
+        holiday2.setStartDate(futureDate.plusDays(10));
+        holiday2.setEndDate(futureDate.plusDays(10));
+        holiday2.setYear(futureDate.plusDays(10).getYear());
         holiday2.setName("Cumhuriyet Bayramı");
-        holiday2.setHalfDay(false);
+        holiday2.setIsHalfDay(false);
         holiday2.setIsActive(true);
         publicHolidayRepository.save(holiday2);
 
@@ -281,9 +287,11 @@ class PublicHolidayControllerIntegrationTest {
     @DisplayName("GET /api/metadata/public-holidays/{id} - HR rolü ile ID'ye göre getirir")
     void getPublicHolidayById_WithHrRole_ShouldReturn() throws Exception {
         PublicHoliday holiday = new PublicHoliday();
-        holiday.setDate(futureDate);
+        holiday.setStartDate(futureDate);
+        holiday.setEndDate(futureDate);
+        holiday.setYear(futureDate.getYear());
         holiday.setName("Yeni Yıl");
-        holiday.setHalfDay(false);
+        holiday.setIsHalfDay(false);
         holiday.setIsActive(true);
         holiday = publicHolidayRepository.save(holiday);
 
@@ -292,7 +300,7 @@ class PublicHolidayControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(holiday.getId().intValue()))
                 .andExpect(jsonPath("$.name").value("Yeni Yıl"))
-                .andExpect(jsonPath("$.date").value(futureDate.toString()));
+                .andExpect(jsonPath("$.startDate").value(futureDate.toString()));
     }
 
     @Test
@@ -309,9 +317,11 @@ class PublicHolidayControllerIntegrationTest {
     @DisplayName("PUT /api/metadata/public-holidays/{id} - HR rolü ile başarılı güncelleme")
     void updatePublicHoliday_WithHrRole_ShouldUpdate() throws Exception {
         PublicHoliday holiday = new PublicHoliday();
-        holiday.setDate(futureDate);
+        holiday.setStartDate(futureDate);
+        holiday.setEndDate(futureDate);
+        holiday.setYear(futureDate.getYear());
         holiday.setName("Yeni Yıl");
-        holiday.setHalfDay(false);
+        holiday.setIsHalfDay(false);
         holiday.setIsActive(true);
         holiday = publicHolidayRepository.save(holiday);
 
@@ -330,7 +340,7 @@ class PublicHolidayControllerIntegrationTest {
                         .content(requestBody))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Güncellenmiş Tatil"))
-                .andExpect(jsonPath("$.date").value(newDate.toString()))
+                .andExpect(jsonPath("$.startDate").value(newDate.toString()))
                 .andExpect(jsonPath("$.isHalfDay").value(true));
     }
 
@@ -338,16 +348,20 @@ class PublicHolidayControllerIntegrationTest {
     @DisplayName("PUT /api/metadata/public-holidays/{id} - Duplicate date kontrolü")
     void updatePublicHoliday_DuplicateDate_ShouldReturnBadRequest() throws Exception {
         PublicHoliday holiday1 = new PublicHoliday();
-        holiday1.setDate(futureDate);
+        holiday1.setStartDate(futureDate);
+        holiday1.setEndDate(futureDate);
+        holiday1.setYear(futureDate.getYear());
         holiday1.setName("Tatil 1");
-        holiday1.setHalfDay(false);
+        holiday1.setIsHalfDay(false);
         holiday1.setIsActive(true);
         holiday1 = publicHolidayRepository.save(holiday1);
 
         PublicHoliday holiday2 = new PublicHoliday();
-        holiday2.setDate(futureDate.plusDays(10));
+        holiday2.setStartDate(futureDate.plusDays(10));
+        holiday2.setEndDate(futureDate.plusDays(10));
+        holiday2.setYear(futureDate.plusDays(10).getYear());
         holiday2.setName("Tatil 2");
-        holiday2.setHalfDay(false);
+        holiday2.setIsHalfDay(false);
         holiday2.setIsActive(true);
         holiday2 = publicHolidayRepository.save(holiday2);
 
@@ -357,7 +371,7 @@ class PublicHolidayControllerIntegrationTest {
                   "name": "Tatil 1",
                   "isHalfDay": false
                 }
-                """, holiday2.getDate());
+                """, holiday2.getStartDate());
 
         mockMvc.perform(put("/api/metadata/public-holidays/" + holiday1.getId())
                         .header("Authorization", "Bearer " + hrToken)
@@ -390,9 +404,11 @@ class PublicHolidayControllerIntegrationTest {
     @DisplayName("DELETE /api/metadata/public-holidays/{id} - HR rolü ile başarılı silme")
     void deletePublicHoliday_WithHrRole_ShouldDelete() throws Exception {
         PublicHoliday holiday = new PublicHoliday();
-        holiday.setDate(futureDate);
+        holiday.setStartDate(futureDate);
+        holiday.setEndDate(futureDate);
+        holiday.setYear(futureDate.getYear());
         holiday.setName("Yeni Yıl");
-        holiday.setHalfDay(false);
+        holiday.setIsHalfDay(false);
         holiday.setIsActive(true);
         holiday = publicHolidayRepository.save(holiday);
 
@@ -437,4 +453,5 @@ class PublicHolidayControllerIntegrationTest {
         return (String) map.get("token");
     }
 }
+
 

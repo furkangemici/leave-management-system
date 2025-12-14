@@ -47,19 +47,21 @@ class PublicHolidayServiceTest {
 
         testPublicHoliday = new PublicHoliday();
         testPublicHoliday.setId(1L);
-        testPublicHoliday.setDate(futureDate);
+        testPublicHoliday.setStartDate(futureDate);
+        testPublicHoliday.setEndDate(futureDate);
+        testPublicHoliday.setYear(futureDate.getYear());
         testPublicHoliday.setName("Yeni Yıl");
-        testPublicHoliday.setHalfDay(false);
+        testPublicHoliday.setIsHalfDay(false);
         testPublicHoliday.setIsActive(true);
 
         createRequest = PublicHolidayCreateRequest.builder()
-                .date(futureDate)
+                .startDate(futureDate)
                 .name("Cumhuriyet Bayramı")
                 .isHalfDay(false)
                 .build();
 
         updateRequest = PublicHolidayUpdateRequest.builder()
-                .date(futureDate.plusDays(10))
+                .startDate(futureDate.plusDays(10))
                 .name("Güncellenmiş Tatil")
                 .isHalfDay(true)
                 .build();
@@ -71,7 +73,7 @@ class PublicHolidayServiceTest {
     @DisplayName("createPublicHoliday - Başarılı oluşturma")
     void createPublicHoliday_Success() {
         // Arrange
-        when(publicHolidayRepository.existsByDate(createRequest.getDate())).thenReturn(false);
+        when(publicHolidayRepository.existsByDateInRange(createRequest.getStartDate())).thenReturn(false);
         when(publicHolidayRepository.save(any(PublicHoliday.class))).thenAnswer(invocation -> {
             PublicHoliday saved = invocation.getArgument(0);
             saved.setId(1L);
@@ -83,10 +85,10 @@ class PublicHolidayServiceTest {
 
         // Assert
         assertNotNull(response);
-        assertEquals(createRequest.getDate(), response.getDate());
+        assertEquals(createRequest.getStartDate(), response.getStartDate());
         assertEquals(createRequest.getName(), response.getName());
         assertEquals(createRequest.getIsHalfDay(), response.getIsHalfDay());
-        verify(publicHolidayRepository).existsByDate(createRequest.getDate());
+        verify(publicHolidayRepository).existsByDateInRange(createRequest.getStartDate());
         verify(publicHolidayRepository).save(any(PublicHoliday.class));
     }
 
@@ -94,7 +96,7 @@ class PublicHolidayServiceTest {
     @DisplayName("createPublicHoliday - Geçmiş tarih kontrolü başarısız")
     void createPublicHoliday_PastDate_ShouldThrowException() {
         // Arrange
-        createRequest.setDate(pastDate);
+        createRequest.setStartDate(pastDate);
 
         // Act & Assert
         BusinessException exception = assertThrows(BusinessException.class, () -> {
@@ -102,7 +104,7 @@ class PublicHolidayServiceTest {
         });
 
         assertEquals("Geçmiş bir tarih için resmi tatil oluşturulamaz: " + pastDate, exception.getMessage());
-        verify(publicHolidayRepository, never()).existsByDate(any());
+        verify(publicHolidayRepository, never()).existsByDateInRange(any());
         verify(publicHolidayRepository, never()).save(any(PublicHoliday.class));
     }
 
@@ -111,8 +113,8 @@ class PublicHolidayServiceTest {
     void createPublicHoliday_TodayDate_Success() {
         // Arrange
         LocalDate today = LocalDate.now();
-        createRequest.setDate(today);
-        when(publicHolidayRepository.existsByDate(today)).thenReturn(false);
+        createRequest.setStartDate(today);
+        when(publicHolidayRepository.existsByDateInRange(today)).thenReturn(false);
         when(publicHolidayRepository.save(any(PublicHoliday.class))).thenAnswer(invocation -> {
             PublicHoliday saved = invocation.getArgument(0);
             saved.setId(1L);
@@ -124,8 +126,8 @@ class PublicHolidayServiceTest {
 
         // Assert
         assertNotNull(response);
-        assertEquals(today, response.getDate());
-        verify(publicHolidayRepository).existsByDate(today);
+        assertEquals(today, response.getStartDate());
+        verify(publicHolidayRepository).existsByDateInRange(today);
         verify(publicHolidayRepository).save(any(PublicHoliday.class));
     }
 
@@ -133,15 +135,15 @@ class PublicHolidayServiceTest {
     @DisplayName("createPublicHoliday - Date unique kontrolü başarısız")
     void createPublicHoliday_DuplicateDate_ShouldThrowException() {
         // Arrange
-        when(publicHolidayRepository.existsByDate(createRequest.getDate())).thenReturn(true);
+        when(publicHolidayRepository.existsByDateInRange(createRequest.getStartDate())).thenReturn(true);
 
         // Act & Assert
         BusinessException exception = assertThrows(BusinessException.class, () -> {
             publicHolidayService.createPublicHoliday(createRequest);
         });
 
-        assertEquals("Bu tarih için zaten bir resmi tatil kaydı mevcut: " + createRequest.getDate(), exception.getMessage());
-        verify(publicHolidayRepository).existsByDate(createRequest.getDate());
+        assertEquals("Bu tarih için zaten bir resmi tatil kaydı mevcut: " + createRequest.getStartDate(), exception.getMessage());
+        verify(publicHolidayRepository).existsByDateInRange(createRequest.getStartDate());
         verify(publicHolidayRepository, never()).save(any(PublicHoliday.class));
     }
 
@@ -153,9 +155,11 @@ class PublicHolidayServiceTest {
         // Arrange
         PublicHoliday holiday2 = new PublicHoliday();
         holiday2.setId(2L);
-        holiday2.setDate(futureDate.plusDays(20));
+        holiday2.setStartDate(futureDate.plusDays(20));
+        holiday2.setEndDate(futureDate.plusDays(20));
+        holiday2.setYear(futureDate.plusDays(20).getYear());
         holiday2.setName("İşçi Bayramı");
-        holiday2.setHalfDay(false);
+        holiday2.setIsHalfDay(false);
         holiday2.setIsActive(true);
 
         when(publicHolidayRepository.findAll()).thenReturn(Arrays.asList(testPublicHoliday, holiday2));
@@ -181,9 +185,9 @@ class PublicHolidayServiceTest {
         // Assert
         assertNotNull(response);
         assertEquals(testPublicHoliday.getId(), response.getId());
-        assertEquals(testPublicHoliday.getDate(), response.getDate());
+        assertEquals(testPublicHoliday.getStartDate(), response.getStartDate());
         assertEquals(testPublicHoliday.getName(), response.getName());
-        assertEquals(testPublicHoliday.isHalfDay(), response.getIsHalfDay());
+        assertEquals(testPublicHoliday.getIsHalfDay(), response.getIsHalfDay());
         verify(publicHolidayRepository).findById(1L);
     }
 
@@ -209,7 +213,7 @@ class PublicHolidayServiceTest {
     void updatePublicHoliday_Success() {
         // Arrange
         when(publicHolidayRepository.findById(1L)).thenReturn(Optional.of(testPublicHoliday));
-        when(publicHolidayRepository.findByDate(updateRequest.getDate())).thenReturn(Optional.empty());
+        when(publicHolidayRepository.findByDateInRange(updateRequest.getStartDate())).thenReturn(Optional.empty());
         when(publicHolidayRepository.save(any(PublicHoliday.class))).thenReturn(testPublicHoliday);
 
         // Act
@@ -218,7 +222,7 @@ class PublicHolidayServiceTest {
         // Assert
         assertNotNull(response);
         verify(publicHolidayRepository).findById(1L);
-        verify(publicHolidayRepository).findByDate(updateRequest.getDate());
+        verify(publicHolidayRepository).findByDateInRange(updateRequest.getStartDate());
         verify(publicHolidayRepository).save(any(PublicHoliday.class));
     }
 
@@ -226,9 +230,9 @@ class PublicHolidayServiceTest {
     @DisplayName("updatePublicHoliday - Aynı tarihle güncelleme (kendi ID'si)")
     void updatePublicHoliday_SameDate_Success() {
         // Arrange
-        updateRequest.setDate(testPublicHoliday.getDate());
+        updateRequest.setStartDate(testPublicHoliday.getStartDate());
         when(publicHolidayRepository.findById(1L)).thenReturn(Optional.of(testPublicHoliday));
-        when(publicHolidayRepository.findByDate(testPublicHoliday.getDate())).thenReturn(Optional.of(testPublicHoliday));
+        when(publicHolidayRepository.findByDateInRange(testPublicHoliday.getStartDate())).thenReturn(Optional.of(testPublicHoliday));
         when(publicHolidayRepository.save(any(PublicHoliday.class))).thenReturn(testPublicHoliday);
 
         // Act
@@ -237,7 +241,7 @@ class PublicHolidayServiceTest {
         // Assert
         assertNotNull(response);
         verify(publicHolidayRepository).findById(1L);
-        verify(publicHolidayRepository).findByDate(testPublicHoliday.getDate());
+        verify(publicHolidayRepository).findByDateInRange(testPublicHoliday.getStartDate());
         verify(publicHolidayRepository).save(any(PublicHoliday.class));
     }
 
@@ -247,19 +251,20 @@ class PublicHolidayServiceTest {
         // Arrange
         PublicHoliday otherHoliday = new PublicHoliday();
         otherHoliday.setId(2L);
-        otherHoliday.setDate(updateRequest.getDate());
+        otherHoliday.setStartDate(updateRequest.getStartDate());
+        otherHoliday.setEndDate(updateRequest.getStartDate());
 
         when(publicHolidayRepository.findById(1L)).thenReturn(Optional.of(testPublicHoliday));
-        when(publicHolidayRepository.findByDate(updateRequest.getDate())).thenReturn(Optional.of(otherHoliday));
+        when(publicHolidayRepository.findByDateInRange(updateRequest.getStartDate())).thenReturn(Optional.of(otherHoliday));
 
         // Act & Assert
         BusinessException exception = assertThrows(BusinessException.class, () -> {
             publicHolidayService.updatePublicHoliday(1L, updateRequest);
         });
 
-        assertEquals("Bu tarih için zaten bir resmi tatil kaydı mevcut: " + updateRequest.getDate(), exception.getMessage());
+        assertEquals("Bu tarih için zaten bir resmi tatil kaydı mevcut: " + updateRequest.getStartDate(), exception.getMessage());
         verify(publicHolidayRepository).findById(1L);
-        verify(publicHolidayRepository).findByDate(updateRequest.getDate());
+        verify(publicHolidayRepository).findByDateInRange(updateRequest.getStartDate());
         verify(publicHolidayRepository, never()).save(any(PublicHoliday.class));
     }
 
@@ -312,4 +317,5 @@ class PublicHolidayServiceTest {
         verify(publicHolidayRepository, never()).save(any(PublicHoliday.class));
     }
 }
+
 

@@ -9,20 +9,35 @@ import java.time.LocalDate;
 @Table(name = "public_holidays")
 @Getter
 @Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @ToString
 @EqualsAndHashCode(onlyExplicitlyIncluded = true, callSuper = false)
 public class PublicHoliday extends BaseEntity {
+    
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @EqualsAndHashCode.Include
     private Long id;
-
-    @Column(name = "holiday_date", nullable = false, unique = true)
-    private LocalDate date;
-
-    @Column(name = "name", nullable = false)
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "template_id")
+    private HolidayTemplate template;
+    
+    @Column(nullable = false)
     private String name;
-
-    @Column(name = "is_half_day", nullable = false)
-    private boolean isHalfDay = false;
+    
+    @Column(nullable = false)
+    private LocalDate startDate;
+    
+    @Column(nullable = false)
+    private LocalDate endDate;
+    
+    @Column(name = "current_year", nullable = false)
+    private Integer year;
+    
+    @Builder.Default
+    @Column(nullable = false)
+    private Boolean isHalfDay = false;
 }

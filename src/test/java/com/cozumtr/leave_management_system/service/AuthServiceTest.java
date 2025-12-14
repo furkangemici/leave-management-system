@@ -144,7 +144,7 @@ class AuthServiceTest {
 
     void setUp() {
 
-        // Test Employee oluştur
+        // Test Employee oluÅŸtur
 
         testEmployee = new Employee();
 
@@ -161,7 +161,7 @@ class AuthServiceTest {
 
 
 
-        // Test User oluştur
+        // Test User oluÅŸtur
 
         testUser = new User();
 
@@ -181,7 +181,7 @@ class AuthServiceTest {
 
     @Test
 
-    @DisplayName("forgotPassword - Kullanıcı varsa token oluşturmalı")
+    @DisplayName("forgotPassword - KullanÄ±cÄ± varsa token oluÅŸturmalÄ±")
 
     void testForgotPassword_UserExists_ShouldCreateToken() {
 
@@ -220,7 +220,7 @@ class AuthServiceTest {
 
     @Test
 
-    @DisplayName("forgotPassword - Kullanıcı yoksa hata fırlatmamalı (güvenlik)")
+    @DisplayName("forgotPassword - KullanÄ±cÄ± yoksa hata fÄ±rlatmamalÄ± (gÃ¼venlik)")
 
     void testForgotPassword_UserNotExists_ShouldNotThrowException() {
 
@@ -250,7 +250,7 @@ class AuthServiceTest {
 
     @Test
 
-    @DisplayName("forgotPassword - SMS kanalı, telefon eşleşirse token ve SMS gönderir")
+    @DisplayName("forgotPassword - SMS kanalÄ±, telefon eÅŸleÅŸirse token ve SMS gÃ¶nderir")
 
     void testForgotPassword_SmsChannel_WithMatchingPhone_SendsSms() {
 
@@ -288,7 +288,7 @@ class AuthServiceTest {
 
     @Test
 
-    @DisplayName("forgotPassword - SMS kanalı, telefon eşleşmezse BusinessException fırlatır")
+    @DisplayName("forgotPassword - SMS kanalÄ±, telefon eÅŸleÅŸmezse BusinessException fÄ±rlatÄ±r")
 
     void testForgotPassword_SmsChannel_WithMismatchedPhone_Throws() {
 
@@ -322,7 +322,7 @@ class AuthServiceTest {
 
     @Test
 
-    @DisplayName("forgotPassword - Kullanıcı aktif değilse token oluşturmamalı")
+    @DisplayName("forgotPassword - KullanÄ±cÄ± aktif deÄŸilse token oluÅŸturmamalÄ±")
 
     void testForgotPassword_UserInactive_ShouldNotCreateToken() {
 
@@ -358,7 +358,7 @@ class AuthServiceTest {
 
     @Test
 
-    @DisplayName("validateResetToken - Geçerli token döndürmeli")
+    @DisplayName("validateResetToken - GeÃ§erli token dÃ¶ndÃ¼rmeli")
 
     void testValidateResetToken_ValidToken_ShouldReturnTrue() {
 
@@ -396,7 +396,7 @@ class AuthServiceTest {
 
     @Test
 
-    @DisplayName("validateResetToken - Geçersiz token döndürmeli")
+    @DisplayName("validateResetToken - GeÃ§ersiz token dÃ¶ndÃ¼rmeli")
 
     void testValidateResetToken_InvalidToken_ShouldReturnFalse() {
 
@@ -430,7 +430,7 @@ class AuthServiceTest {
 
     @Test
 
-    @DisplayName("validateResetToken - Süresi dolmuş token döndürmeli")
+    @DisplayName("validateResetToken - SÃ¼resi dolmuÅŸ token dÃ¶ndÃ¼rmeli")
 
     void testValidateResetToken_ExpiredToken_ShouldReturnFalse() {
 
@@ -460,7 +460,7 @@ class AuthServiceTest {
 
     @Test
 
-    @DisplayName("validateResetToken - Kullanıcı aktif değilse false döndürmeli")
+    @DisplayName("validateResetToken - KullanÄ±cÄ± aktif deÄŸilse false dÃ¶ndÃ¼rmeli")
 
     void testValidateResetToken_UserInactive_ShouldReturnFalse() {
 
@@ -496,7 +496,7 @@ class AuthServiceTest {
 
     @Test
 
-    @DisplayName("resetPassword - Başarılı şifre sıfırlama")
+    @DisplayName("resetPassword - BaÅŸarÄ±lÄ± ÅŸifre sÄ±fÄ±rlama")
 
     void testResetPassword_Success_ShouldUpdatePassword() {
 
@@ -556,7 +556,7 @@ class AuthServiceTest {
 
     @Test
 
-    @DisplayName("resetPassword - Şifreler eşleşmiyorsa hata fırlatmalı")
+    @DisplayName("resetPassword - Åifreler eÅŸleÅŸmiyorsa hata fÄ±rlatmalÄ±")
 
     void testResetPassword_PasswordsNotMatch_ShouldThrowException() {
 
@@ -580,7 +580,7 @@ class AuthServiceTest {
 
 
 
-        assertEquals("Şifre ve şifre tekrarı eşleşmiyor", exception.getMessage());
+        assertEquals("Åifre ve ÅŸifre tekrarÄ± eÅŸleÅŸmiyor", exception.getMessage());
 
         verify(userRepository, never()).save(any(User.class));
 
@@ -590,7 +590,7 @@ class AuthServiceTest {
 
     @Test
 
-    @DisplayName("resetPassword - Şifre çok kısa ise hata fırlatmalı")
+    @DisplayName("resetPassword - Åifre Ã§ok kÄ±sa ise hata fÄ±rlatmalÄ±")
 
     void testResetPassword_PasswordTooShort_ShouldThrowException() {
 
@@ -614,7 +614,7 @@ class AuthServiceTest {
 
 
 
-        assertEquals("Şifre en az 8, en fazla 30 karakter olmalıdır", exception.getMessage());
+        assertEquals("Åifre en az 8, en fazla 30 karakter olmalÄ±dÄ±r", exception.getMessage());
 
     }
 
@@ -622,7 +622,7 @@ class AuthServiceTest {
 
     @Test
 
-    @DisplayName("resetPassword - Geçersiz token ise hata fırlatmalı")
+    @DisplayName("resetPassword - GeÃ§ersiz token ise hata fÄ±rlatmalÄ±")
 
     void testResetPassword_InvalidToken_ShouldThrowException() {
 
@@ -652,7 +652,7 @@ class AuthServiceTest {
 
 
 
-        assertEquals("Geçersiz veya süresi dolmuş şifre sıfırlama token'ı", exception.getMessage());
+        assertEquals("GeÃ§ersiz veya sÃ¼resi dolmuÅŸ ÅŸifre sÄ±fÄ±rlama token'Ä±", exception.getMessage());
 
         verify(passwordEncoder, never()).encode(anyString());
 
@@ -662,7 +662,7 @@ class AuthServiceTest {
 
     @Test
 
-    @DisplayName("resetPassword - Kullanıcı aktif değilse hata fırlatmalı")
+    @DisplayName("resetPassword - KullanÄ±cÄ± aktif deÄŸilse hata fÄ±rlatmalÄ±")
 
     void testResetPassword_UserInactive_ShouldThrowException() {
 
@@ -700,7 +700,7 @@ class AuthServiceTest {
 
 
 
-        assertEquals("Hesabınız aktif değil", exception.getMessage());
+        assertEquals("HesabÄ±nÄ±z aktif deÄŸil", exception.getMessage());
 
     }
 
@@ -708,7 +708,7 @@ class AuthServiceTest {
 
     @Test
 
-    @DisplayName("login - Yanlış şifre girilince sayaç artmalı")
+    @DisplayName("login - YanlÄ±ÅŸ ÅŸifre girilince sayaÃ§ artmalÄ±")
 
     void testLogin_WrongPassword_ShouldIncrementCounter() {
 
@@ -722,7 +722,7 @@ class AuthServiceTest {
 
         testUser.setFailedLoginAttempts(0);
 
-        testUser.setPasswordHash("$2a$10$encodedPassword"); // Hashlenmiş şifre var sayalım
+        testUser.setPasswordHash("$2a$10$encodedPassword"); // HashlenmiÅŸ ÅŸifre var sayalÄ±m
 
 
 
@@ -734,15 +734,15 @@ class AuthServiceTest {
 
 
 
-        // Kullanıcı var
+        // KullanÄ±cÄ± var
 
         when(userRepository.findByEmployeeEmail(email)).thenReturn(Optional.of(testUser));
 
 
 
-        // KRİTİK NOKTA BURASI:
+        // KRÄ°TÄ°K NOKTA BURASI:
 
-        // AuthenticationManager'a diyoruz ki: "authenticate metodunu çağırırlarsa BadCredentialsException fırlat!"
+        // AuthenticationManager'a diyoruz ki: "authenticate metodunu Ã§aÄŸÄ±rÄ±rlarsa BadCredentialsException fÄ±rlat!"
 
         when(authenticationManager.authenticate(any())).thenThrow(new BadCredentialsException("Bad credentials"));
 
@@ -754,15 +754,15 @@ class AuthServiceTest {
 
 
 
-        // Mesaj kontrolü (Senin kodunda "Giriş bilgileri hatalı" dönüyor)
+        // Mesaj kontrolÃ¼ (Senin kodunda "GiriÅŸ bilgileri hatalÄ±" dÃ¶nÃ¼yor)
 
-        assertTrue(ex.getMessage().contains("Giriş bilgileri hatalı"));
+        assertTrue(ex.getMessage().contains("GiriÅŸ bilgileri hatalÄ±"));
 
 
 
         // 3. VERIFY
 
-        // Sayaç arttı mı?
+        // SayaÃ§ arttÄ± mÄ±?
 
         assertEquals(1, testUser.getFailedLoginAttempts());
 
@@ -776,7 +776,7 @@ class AuthServiceTest {
 
     @Test
 
-    @DisplayName("login - Başarılı giriş testi")
+    @DisplayName("login - BaÅŸarÄ±lÄ± giriÅŸ testi")
 
     void testLogin_Success_ShouldReturnToken() {
 
@@ -798,7 +798,7 @@ class AuthServiceTest {
 
 
 
-        // Role oluştur
+        // Role oluÅŸtur
 
         Role testRole = new Role();
 
@@ -820,7 +820,7 @@ class AuthServiceTest {
 
 
 
-        // AuthenticationManager başarılı dönecek - Authentication mock objesi döndür
+        // AuthenticationManager baÅŸarÄ±lÄ± dÃ¶necek - Authentication mock objesi dÃ¶ndÃ¼r
 
         Authentication mockAuth = mock(Authentication.class);
 
@@ -856,7 +856,7 @@ class AuthServiceTest {
 
     @Test
 
-    @DisplayName("login - Hesap kilitli ise (failedLoginAttempts >= 5) hata fırlatmalı")
+    @DisplayName("login - Hesap kilitli ise (failedLoginAttempts >= 5) hata fÄ±rlatmalÄ±")
 
     void testLogin_AccountLocked_ShouldThrowException() {
 
@@ -890,11 +890,11 @@ class AuthServiceTest {
 
 
 
-        assertTrue(exception.getMessage().contains("kilitlenmiştir"));
+        assertTrue(exception.getMessage().contains("kilitlenmiÅŸtir"));
 
-        assertTrue(exception.getMessage().contains("Şifremi Unuttum"));
+        assertTrue(exception.getMessage().contains("Åifremi Unuttum"));
 
-        // AuthenticationManager hiç çağrılmamalı
+        // AuthenticationManager hiÃ§ Ã§aÄŸrÄ±lmamalÄ±
 
         verify(authenticationManager, never()).authenticate(any());
 
@@ -912,7 +912,7 @@ class AuthServiceTest {
 
         String email = "test@sirket.com";
 
-        testUser.setFailedLoginAttempts(4); // 4. hatayı yaptı, 5. hatayı yapacak
+        testUser.setFailedLoginAttempts(4); // 4. hatayÄ± yaptÄ±, 5. hatayÄ± yapacak
 
 
 
@@ -942,7 +942,7 @@ class AuthServiceTest {
 
 
 
-        assertEquals("Hesabınız kilitlendi. Lütfen şifrenizi sıfırlayın.", exception.getMessage());
+        assertEquals("HesabÄ±nÄ±z kilitlendi. LÃ¼tfen ÅŸifrenizi sÄ±fÄ±rlayÄ±n.", exception.getMessage());
 
         assertEquals(5, testUser.getFailedLoginAttempts());
 
@@ -954,7 +954,7 @@ class AuthServiceTest {
 
     @Test
 
-    @DisplayName("login - Kullanıcı aktif değilse hata fırlatmalı")
+    @DisplayName("login - KullanÄ±cÄ± aktif deÄŸilse hata fÄ±rlatmalÄ±")
 
     void testLogin_UserInactive_ShouldThrowException() {
 
@@ -978,7 +978,7 @@ class AuthServiceTest {
 
 
 
-        // AuthenticationManager başarılı dönecek
+        // AuthenticationManager baÅŸarÄ±lÄ± dÃ¶necek
 
         Authentication mockAuth = mock(Authentication.class);
 
@@ -996,7 +996,7 @@ class AuthServiceTest {
 
 
 
-        assertTrue(exception.getMessage().contains("aktif değil"));
+        assertTrue(exception.getMessage().contains("aktif deÄŸil"));
 
     }
 
@@ -1004,7 +1004,7 @@ class AuthServiceTest {
 
     @Test
 
-    @DisplayName("login - Şifre null ise hata fırlatmalı")
+    @DisplayName("login - Åifre null ise hata fÄ±rlatmalÄ±")
 
     void testLogin_PasswordNull_ShouldThrowException() {
 
@@ -1012,7 +1012,7 @@ class AuthServiceTest {
 
         String email = "test@sirket.com";
 
-        testUser.setPasswordHash(null); // Şifre henüz belirlenmemiş
+        testUser.setPasswordHash(null); // Åifre henÃ¼z belirlenmemiÅŸ
 
 
 
@@ -1028,7 +1028,7 @@ class AuthServiceTest {
 
 
 
-        // AuthenticationManager başarılı dönecek
+        // AuthenticationManager baÅŸarÄ±lÄ± dÃ¶necek
 
         Authentication mockAuth = mock(Authentication.class);
 
@@ -1046,7 +1046,7 @@ class AuthServiceTest {
 
 
 
-        assertTrue(exception.getMessage().contains("henüz belirlenmemiş"));
+        assertTrue(exception.getMessage().contains("henÃ¼z belirlenmemiÅŸ"));
 
     }
 
@@ -1054,7 +1054,7 @@ class AuthServiceTest {
 
     @Test
 
-    @DisplayName("login - Başarılı girişte failedLoginAttempts sıfırlanmalı")
+    @DisplayName("login - BaÅŸarÄ±lÄ± giriÅŸte failedLoginAttempts sÄ±fÄ±rlanmalÄ±")
 
     void testLogin_Success_ShouldResetFailedAttempts() {
 
@@ -1062,7 +1062,7 @@ class AuthServiceTest {
 
         String email = "test@sirket.com";
 
-        testUser.setFailedLoginAttempts(3); // Önceki başarısız denemeler var
+        testUser.setFailedLoginAttempts(3); // Ã–nceki baÅŸarÄ±sÄ±z denemeler var
 
 
 
@@ -1094,7 +1094,7 @@ class AuthServiceTest {
 
 
 
-        // AuthenticationManager başarılı dönecek
+        // AuthenticationManager baÅŸarÄ±lÄ± dÃ¶necek
 
         Authentication mockAuth = mock(Authentication.class);
 
@@ -1120,7 +1120,7 @@ class AuthServiceTest {
 
     @Test
 
-    @DisplayName("resetPassword - Şifre çok uzun ise (30 karakterden fazla) hata fırlatmalı")
+    @DisplayName("resetPassword - Åifre Ã§ok uzun ise (30 karakterden fazla) hata fÄ±rlatmalÄ±")
 
     void testResetPassword_PasswordTooLong_ShouldThrowException() {
 
@@ -1144,7 +1144,7 @@ class AuthServiceTest {
 
 
 
-        assertEquals("Şifre en az 8, en fazla 30 karakter olmalıdır", exception.getMessage());
+        assertEquals("Åifre en az 8, en fazla 30 karakter olmalÄ±dÄ±r", exception.getMessage());
 
         verify(userRepository, never()).save(any(User.class));
 
@@ -1154,7 +1154,7 @@ class AuthServiceTest {
 
     @Test
 
-    @DisplayName("resetPassword - Şifre tam 8 karakter ise başarılı olmalı")
+    @DisplayName("resetPassword - Åifre tam 8 karakter ise baÅŸarÄ±lÄ± olmalÄ±")
 
     void testResetPassword_PasswordExactly8Chars_ShouldSucceed() {
 
@@ -1206,7 +1206,7 @@ class AuthServiceTest {
 
     @Test
 
-    @DisplayName("resetPassword - Şifre tam 30 karakter ise başarılı olmalı")
+    @DisplayName("resetPassword - Åifre tam 30 karakter ise baÅŸarÄ±lÄ± olmalÄ±")
 
     void testResetPassword_PasswordExactly30Chars_ShouldSucceed() {
 
@@ -1255,6 +1255,8 @@ class AuthServiceTest {
     }
 
 }
+
+
 
 
 

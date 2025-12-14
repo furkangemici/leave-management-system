@@ -11,9 +11,6 @@ import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -49,14 +46,8 @@ public class LeaveCalculationService {
         log.info("İzin süresi hesaplanıyor: {} - {}, Günlük mesai: {} saat", startDate, endDate, dailyWorkHours);
 
         // --- 2. VERİ HAZIRLIĞI (Performans Optimizasyonu) ---
-        // Tüm resmi tatilleri bir kere çekip Map'e al (döngü içinde sorgu yapmamak için)
-        List<PublicHoliday> holidays = publicHolidayRepository.findAllByDateBetween(startDate, endDate);
-        Map<LocalDate, PublicHoliday> holidayMap = holidays.stream()
-                .collect(Collectors.toMap(
-                        PublicHoliday::getDate,
-                        Function.identity(),
-                        (existing, replacement) -> existing // Çakışma varsa mevcut olanı koru
-                ));
+        // Tüm resmi tatilleri bir kere çekip List'e al
+        List<PublicHoliday> holidays = publicHolidayRepository.findHolidaysInRange(startDate, endDate);
 
         // --- 3. HESAPLAMA DÖNGÜSÜ ---
         BigDecimal netWorkingHours = BigDecimal.ZERO;
@@ -72,10 +63,15 @@ public class LeaveCalculationService {
                 continue; // Hafta sonu izin sayılmaz, sonraki güne geç
             }
 
-            // B) Resmi Tatil Kontrolü (Map'ten kontrol ediyoruz - tek sorgu)
-            PublicHoliday holiday = holidayMap.get(currentDate);
+            // B) Resmi Tatil Kontrolü (tarih aralığında mı?)
+            final LocalDate checkDate = currentDate;
+            PublicHoliday holiday = holidays.stream()
+                    .filter(h -> !checkDate.isBefore(h.getStartDate()) && !checkDate.isAfter(h.getEndDate()))
+                    .findFirst()
+                    .orElse(null);
+
             if (holiday != null) {
-                if (holiday.isHalfDay()) {
+                if (holiday.getIsHalfDay()) {
                     // Yarım gün tatil (Arife) -> 0.5 gün * dailyWorkHours saat ekle
                     BigDecimal halfDayHours = dailyWorkHours.multiply(new BigDecimal("0.5"));
                     netWorkingHours = netWorkingHours.add(halfDayHours);

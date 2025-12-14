@@ -15,8 +15,12 @@ import java.time.LocalDate;
 @AllArgsConstructor
 public class PublicHolidayResponse {
     private Long id;
-    private LocalDate date;
     private String name;
+    private LocalDate startDate;
+    private LocalDate endDate;
+    private Integer year;
+    private Integer durationDays; // Kaç gün sürdüğü
     private Boolean isHalfDay;
 }
+
 

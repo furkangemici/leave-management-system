@@ -18,4 +18,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
      */
     Optional<User> findByPasswordResetTokenAndPasswordResetExpiresAfter(String token, LocalDateTime dateTime);
 
+    /**
+     * Sadece aktif kullanıcıları getirir (sayfalama ile)
+     */
+    @EntityGraph(attributePaths = {"employee", "employee.department", "roles"})
+    org.springframework.data.domain.Page<User> findAllByIsActive(Boolean isActive, org.springframework.data.domain.Pageable pageable);
 }

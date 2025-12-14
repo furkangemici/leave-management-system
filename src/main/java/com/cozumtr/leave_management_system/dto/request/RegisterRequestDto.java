@@ -21,6 +21,5 @@ public class RegisterRequestDto {
     private Long departmentId;
     @NotNull private BigDecimal dailyWorkHours;
 
-    @NotNull(message = "Rol ID'si zorunludur")
     private Long roleId;
 }

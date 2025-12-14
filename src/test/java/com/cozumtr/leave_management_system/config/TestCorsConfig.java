@@ -11,9 +11,9 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.Arrays;
 
 /**
- * Test ortamında CORS yapılandırması.
- * Test istekleri aynı origin'den geldiği için CORS kontrolüne gerek yoktur.
- * Bu yapılandırma tüm origin'lere izin verir ve testlerin sorunsuz çalışmasını sağlar.
+ * Test ortamÄ±nda CORS yapÄ±landÄ±rmasÄ±.
+ * Test istekleri aynÄ± origin'den geldiÄŸi iÃ§in CORS kontrolÃ¼ne gerek yoktur.
+ * Bu yapÄ±landÄ±rma tÃ¼m origin'lere izin verir ve testlerin sorunsuz Ã§alÄ±ÅŸmasÄ±nÄ± saÄŸlar.
  */
 @Configuration
 @Profile("test")
@@ -24,26 +24,27 @@ public class TestCorsConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         
-        // Test ortamında tüm origin'lere izin ver
+        // Test ortamÄ±nda tÃ¼m origin'lere izin ver
         configuration.setAllowedOrigins(Arrays.asList("*"));
         
-        // Tüm HTTP metodlarına izin ver
+        // TÃ¼m HTTP metodlarÄ±na izin ver
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         
-        // Tüm header'lara izin ver
+        // TÃ¼m header'lara izin ver
         configuration.setAllowedHeaders(Arrays.asList("*"));
         
-        // Test ortamında credentials gerekmez
+        // Test ortamÄ±nda credentials gerekmez
         configuration.setAllowCredentials(false);
         
         // Preflight cache
         configuration.setMaxAge(3600L);
         
-        // CORS yapılandırmasını tüm endpoint'lere uygula
+        // CORS yapÄ±landÄ±rmasÄ±nÄ± tÃ¼m endpoint'lere uygula
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         
         return source;
     }
 }
+
 

@@ -42,10 +42,12 @@ public class DepartmentService {
     }
 
     /**
-     * Tüm departmanları listeler (aktif ve pasif).
+     * Tüm aktif departmanları listeler.
+     * HR departman yönetimi sayfası için kullanılır.
      */
     public List<DepartmentResponse> getAllDepartments() {
         return departmentRepository.findAll().stream()
+                .filter(Department::getIsActive)
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }

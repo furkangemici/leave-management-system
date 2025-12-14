@@ -16,9 +16,12 @@ import java.time.LocalDate;
 @AllArgsConstructor
 public class PublicHolidayCreateRequest {
 
-    @NotNull(message = "Tatil tarihi boş olamaz")
+    @NotNull(message = "Başlangıç tarihi boş olamaz")
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-    private LocalDate date;
+    private LocalDate startDate;
+
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+    private LocalDate endDate; // Opsiyonel - null ise startDate kullanılır
 
     @NotBlank(message = "Tatil adı boş olamaz")
     private String name;

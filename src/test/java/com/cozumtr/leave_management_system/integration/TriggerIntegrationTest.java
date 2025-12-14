@@ -988,3 +988,4 @@ public class TriggerIntegrationTest extends AbstractIntegrationTest {
         }
     }
 }
+

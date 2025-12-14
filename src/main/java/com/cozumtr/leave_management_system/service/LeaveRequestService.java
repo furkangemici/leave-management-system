@@ -90,32 +90,32 @@ public class LeaveRequestService {
         }
 
         BigDecimal duration;
-        
+
         // İzin türüne göre süre hesaplama
         if (leaveType.getRequestUnit() == com.cozumtr.leave_management_system.enums.RequestUnit.HOUR) {
             // Saatlik izinler için saat hesaplama
             // ÖNEMLİ: Saatlik izinler de sadece çalışma günlerinde alınabilir
             // Hafta sonu ve resmi tatil kontrolü yapılmalı
-            
+
             LocalDate startDate = request.getStartDate().toLocalDate();
             LocalDate endDate = request.getEndDate().toLocalDate();
-            
+
             // Hafta sonu kontrolü
             DayOfWeek startDayOfWeek = startDate.getDayOfWeek();
             DayOfWeek endDayOfWeek = endDate.getDayOfWeek();
             boolean isStartWeekend = (startDayOfWeek == DayOfWeek.SATURDAY || startDayOfWeek == DayOfWeek.SUNDAY);
             boolean isEndWeekend = (endDayOfWeek == DayOfWeek.SATURDAY || endDayOfWeek == DayOfWeek.SUNDAY);
-            
+
             if (isStartWeekend || isEndWeekend) {
                 throw new BusinessException("Saatlik izinler hafta sonu günlerinde alınamaz!");
             }
-            
+
             // Resmi tatil kontrolü
-            if (publicHolidayRepository.existsByDate(startDate) || 
-                (!startDate.equals(endDate) && publicHolidayRepository.existsByDate(endDate))) {
+            if (publicHolidayRepository.existsByDateInRange(startDate) ||
+                    (!startDate.equals(endDate) && publicHolidayRepository.existsByDateInRange(endDate))) {
                 throw new BusinessException("Saatlik izinler resmi tatil günlerinde alınamaz!");
             }
-            
+
             // Hafta sonu ve tatil kontrolünden geçtiyse saat farkını hesapla
             long hoursBetween = java.time.Duration.between(
                     request.getStartDate(),
@@ -223,7 +223,7 @@ public class LeaveRequestService {
 
     /**
      * İzin talebini onaylar ve bakiyeyi günceller.
-     * 
+     *
      * @param requestId İzin talebi ID'si
      * @param comments Onay yorumu (opsiyonel)
      */
@@ -244,8 +244,8 @@ public class LeaveRequestService {
         if (leaveRequest.getRequestStatus() == RequestStatus.APPROVED) {
             throw new BusinessException("Bu izin talebi zaten onaylanmış durumda.");
         }
-        if (leaveRequest.getRequestStatus() == RequestStatus.REJECTED || 
-            leaveRequest.getRequestStatus() == RequestStatus.CANCELLED) {
+        if (leaveRequest.getRequestStatus() == RequestStatus.REJECTED ||
+                leaveRequest.getRequestStatus() == RequestStatus.CANCELLED) {
             throw new BusinessException("İptal edilmiş veya reddedilmiş izin talepleri onaylanamaz.");
         }
 
@@ -254,17 +254,17 @@ public class LeaveRequestService {
         com.cozumtr.leave_management_system.entities.User approverUser = userRepository
                 .findByEmployeeEmail(currentEmail)
                 .orElseThrow(() -> new EntityNotFoundException("Onaylayıcı kullanıcısı bulunamadı: " + currentEmail));
-        
+
         String nextApproverRole = leaveRequest.getWorkflowNextApproverRole();
-        
+
         // Kullanıcının tüm rollerini kontrol edip workflow'daki rolü bul
         String currentRole = approverUser.getRoles().stream()
                 .map(role -> role.getRoleName())
                 .filter(roleName -> roleName.equals(nextApproverRole))
                 .findFirst()
                 .orElseThrow(() -> new BusinessException(
-                        String.format("Bu izin talebini onaylama yetkiniz yok. Beklenen rol: %s, Sizin rolleriniz: %s", 
-                                nextApproverRole, 
+                        String.format("Bu izin talebini onaylama yetkiniz yok. Beklenen rol: %s, Sizin rolleriniz: %s",
+                                nextApproverRole,
                                 approverUser.getRoles().stream()
                                         .map(role -> role.getRoleName())
                                         .collect(java.util.stream.Collectors.joining(", ")))
@@ -301,7 +301,7 @@ public class LeaveRequestService {
             // Ara onay - Bir sonraki onaycıya geç
             String nextRole = workflowRoles[currentRoleIndex + 1].trim();
             leaveRequest.setWorkflowNextApproverRole(nextRole);
-            
+
             // Ara onay durumunu set et
             if (currentRole.equals("HR")) {
                 leaveRequest.setRequestStatus(RequestStatus.APPROVED_HR);
@@ -333,7 +333,7 @@ public class LeaveRequestService {
 
     /**
      * İzin talebini reddeder.
-     * 
+     *
      * @param requestId İzin talebi ID'si
      * @param comments Red yorumu (opsiyonel)
      */
@@ -353,8 +353,8 @@ public class LeaveRequestService {
             // Eğer tam onaylanmış ise, bakiyeyi geri al
             // APPROVED durumunda workflow kontrolü yapılmaz (tüm onaylar tamamlanmış)
             restoreLeaveBalance(leaveRequest);
-        } else if (leaveRequest.getRequestStatus() == RequestStatus.REJECTED || 
-                   leaveRequest.getRequestStatus() == RequestStatus.CANCELLED) {
+        } else if (leaveRequest.getRequestStatus() == RequestStatus.REJECTED ||
+                leaveRequest.getRequestStatus() == RequestStatus.CANCELLED) {
             throw new BusinessException("Bu izin talebi zaten reddedilmiş veya iptal edilmiş durumda.");
         } else {
             // 4. Workflow kontrolü (sadece PENDING_APPROVAL, APPROVED_HR, APPROVED_MANAGER durumları için)
@@ -362,9 +362,9 @@ public class LeaveRequestService {
             com.cozumtr.leave_management_system.entities.User approverUser = userRepository
                     .findByEmployeeEmail(currentEmail)
                     .orElseThrow(() -> new EntityNotFoundException("Onaylayıcı kullanıcısı bulunamadı: " + currentEmail));
-            
+
             String nextApproverRole = leaveRequest.getWorkflowNextApproverRole();
-            
+
             // Kullanıcının tüm rollerini kontrol edip workflow'daki rolü bul
             boolean hasRequiredRole = approverUser.getRoles().stream()
                     .map(role -> role.getRoleName())
@@ -440,7 +440,7 @@ public class LeaveRequestService {
     // --- EKİP İZİN TAKİBİ (TEAM VISIBILITY) ---
     /**
      * Belirli bir çalışanın departmanındaki onaylanmış izinleri getirir.
-     * 
+     *
      * @param employeeId Çalışan ID'si
      * @return Departmandaki onaylanmış izinlerin listesi
      * @throws EntityNotFoundException Eğer çalışan bulunamazsa
@@ -508,9 +508,45 @@ public class LeaveRequestService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public List<ManagerLeaveResponseDTO> getManagerAllRequests() {
+        String currentEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        com.cozumtr.leave_management_system.entities.User currentUser = userRepository.findByEmployeeEmail(currentEmail)
+                .orElseThrow(() -> new EntityNotFoundException("Kullanıcı bulunamadı: " + currentEmail));
+
+        Employee currentEmployee = currentUser.getEmployee();
+
+        boolean isHrOrCeo = currentUser.getRoles().stream()
+                .anyMatch(r -> r.getRoleName().equals("HR") || r.getRoleName().equals("CEO") || r.getRoleName().equals("ADMIN"));
+
+        boolean isManager = currentUser.getRoles().stream()
+                .anyMatch(r -> r.getRoleName().equals("MANAGER"));
+
+        if (!isHrOrCeo && !isManager) {
+            throw new BusinessException("Bu ekranı görüntüleme yetkiniz yok.");
+        }
+
+        List<LeaveRequest> leaveRequests;
+        if (isHrOrCeo) {
+            // HR and CEO see everything
+            leaveRequests = leaveRequestRepository.findAllWithDetails();
+        } else {
+            // Managers see their department
+            if (currentEmployee == null || currentEmployee.getDepartment() == null) {
+                throw new BusinessException("Departman bilgisi bulunamadı.");
+            }
+            leaveRequests = leaveRequestRepository.findAllByDepartmentId(currentEmployee.getDepartment().getId());
+        }
+
+        return leaveRequests.stream()
+                .map(this::mapToManagerResponse)
+                .collect(Collectors.toList());
+    }
+
     /**
      * İzin türüne göre bakiye kontrolü yapar.
-     * 
+     *
      * @param employee Çalışan
      * @param leaveType İzin türü
      * @param duration Talep edilen süre (saat)
@@ -542,7 +578,7 @@ public class LeaveRequestService {
             if ("Mazeret İzni (Saatlik)".equals(leaveType.getName())) {
                 int year = startDate.getYear();
                 int month = startDate.getMonthValue();
-                
+
                 // 1. Mazeret izni her seferinde tam 2 saat olmalı
                 BigDecimal requiredHours = new BigDecimal("2");
                 if (duration.compareTo(requiredHours) != 0) {
@@ -553,7 +589,7 @@ public class LeaveRequestService {
                             )
                     );
                 }
-                
+
                 // 2. Ayda maksimum 4 kere mazeret izni alınabilir
                 Long monthlyRequestCount = leaveRequestRepository.countMonthlyUsageByLeaveType(
                         employee.getId(),
@@ -561,7 +597,7 @@ public class LeaveRequestService {
                         year,
                         month
                 );
-                
+
                 int maxRequestsPerMonth = 4;
                 if (monthlyRequestCount >= maxRequestsPerMonth) {
                     throw new BusinessException(
@@ -571,10 +607,10 @@ public class LeaveRequestService {
                             )
                     );
                 }
-                
+
                 // 3. Aylık toplam saat limiti (8 saat = 4 kere × 2 saat)
                 BigDecimal monthlyLimit = new BigDecimal("8");
-                
+
                 // O ay için kullanılan mazeret izni
                 BigDecimal monthlyUsed = leaveRequestRepository.calculateMonthlyUsageByLeaveType(
                         employee.getId(),
@@ -582,10 +618,10 @@ public class LeaveRequestService {
                         year,
                         month
                 );
-                
+
                 // Kalan mazeret izni
                 BigDecimal remainingMonthlyHours = monthlyLimit.subtract(monthlyUsed);
-                
+
                 if (duration.compareTo(remainingMonthlyHours) > 0) {
                     throw new BusinessException(
                             String.format(
@@ -602,12 +638,12 @@ public class LeaveRequestService {
 
     /**
      * İzin onaylandığında bakiyeyi düşürür (sadece deductsFromAnnual = true olan izinler için).
-     * 
+     *
      * @param leaveRequest İzin talebi
      */
     private void deductLeaveBalance(LeaveRequest leaveRequest) {
         LeaveType leaveType = leaveRequest.getLeaveType();
-        
+
         // Sadece yıllık izin bakiyesinden düşen izinler için bakiye düşür
         if (leaveType.isDeductsFromAnnual()) {
             int currentYear = LocalDate.now().getYear();
@@ -628,15 +664,15 @@ public class LeaveRequestService {
 
     /**
      * İzin iptal/red edildiğinde bakiyeyi geri alır (sadece tam onaylanmış ve deductsFromAnnual = true olan izinler için).
-     * 
+     *
      * NOT: Bu metod sadece APPROVED durumundaki izinler için çağrılmalıdır.
      * APPROVED_HR ve APPROVED_MANAGER durumlarında bakiye düşülmediği için geri alınmasına gerek yoktur.
-     * 
+     *
      * @param leaveRequest İzin talebi (durumu APPROVED olmalı)
      */
     private void restoreLeaveBalance(LeaveRequest leaveRequest) {
         LeaveType leaveType = leaveRequest.getLeaveType();
-        
+
         // Sadece yıllık izin bakiyesinden düşen ve tam onaylanmış izinler için bakiye geri al
         if (leaveType.isDeductsFromAnnual() && leaveRequest.getRequestStatus() == RequestStatus.APPROVED) {
             int currentYear = LocalDate.now().getYear();
@@ -648,12 +684,12 @@ public class LeaveRequestService {
 
             // Kullanılan saatten düş
             BigDecimal newHoursUsed = entitlement.getHoursUsed().subtract(leaveRequest.getDurationHours());
-            
+
             // Negatif olamaz kontrolü
             if (newHoursUsed.compareTo(BigDecimal.ZERO) < 0) {
                 newHoursUsed = BigDecimal.ZERO;
             }
-            
+
             entitlement.setHoursUsed(newHoursUsed);
             leaveEntitlementRepository.save(entitlement);
         }
@@ -677,7 +713,7 @@ public class LeaveRequestService {
 
     /**
      * LeaveRequest entity'sini TeamLeaveResponseDTO'ya map eder.
-     * 
+     *
      * @param leaveRequest İzin talebi entity'si
      * @return TeamLeaveResponseDTO
      */
@@ -806,14 +842,14 @@ public class LeaveRequestService {
                     // Gerçek çakışma başlangıcı: İzin başlangıcı ve sprint başlangıcından daha GEÇ olan (MAX)
                     // Mantık: İki tarihten hangisi daha geç ise o kullanılır
                     // Örnek: İzin 5 Ocak, Sprint 10 Ocak → MAX(5 Ocak, 10 Ocak) = 10 Ocak
-                    LocalDateTime overlapStart = leaveRequest.getStartDateTime().isAfter(sprintStart) 
+                    LocalDateTime overlapStart = leaveRequest.getStartDateTime().isAfter(sprintStart)
                             ? leaveRequest.getStartDateTime()  // İzin daha geç başlıyorsa izin başlangıcı
                             : sprintStart;                      // Sprint daha geç başlıyorsa sprint başlangıcı
-                    
+
                     // Gerçek çakışma bitişi: İzin bitişi ve sprint bitişinden daha ERKEN olan (MIN)
                     // Mantık: İki tarihten hangisi daha erken ise o kullanılır
                     // Örnek: İzin 25 Ocak, Sprint 20 Ocak → MIN(25 Ocak, 20 Ocak) = 20 Ocak
-                    LocalDateTime overlapEnd = leaveRequest.getEndDateTime().isBefore(sprintEnd) 
+                    LocalDateTime overlapEnd = leaveRequest.getEndDateTime().isBefore(sprintEnd)
                             ? leaveRequest.getEndDateTime()    // İzin daha erken bitiyorsa izin bitişi
                             : sprintEnd;                        // Sprint daha erken bitiyorsa sprint bitişi
 

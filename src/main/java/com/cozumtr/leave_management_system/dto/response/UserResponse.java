@@ -16,4 +16,5 @@ public class UserResponse {
     private String address;
     private String departmentName;
     private String roleName;
+    private java.util.Set<String> roles;
 }

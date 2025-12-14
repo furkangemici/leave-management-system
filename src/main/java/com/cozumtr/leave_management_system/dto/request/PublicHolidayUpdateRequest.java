@@ -16,9 +16,12 @@ import java.time.LocalDate;
 @AllArgsConstructor
 public class PublicHolidayUpdateRequest {
 
-    @NotNull(message = "Tatil tarihi boş olamaz")
+    @NotNull(message = "Başlangıç tarihi boş olamaz")
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-    private LocalDate date;
+    private LocalDate startDate;
+
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+    private LocalDate endDate;
 
     @NotBlank(message = "Tatil adı boş olamaz")
     private String name;
@@ -26,4 +29,3 @@ public class PublicHolidayUpdateRequest {
     @NotNull(message = "Yarım gün durumu belirtilmelidir")
     private Boolean isHalfDay;
 }
-

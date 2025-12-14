@@ -32,6 +32,7 @@ public class ReportingController {
 
     private final LeaveRequestService leaveRequestService;
     private final SprintRepository sprintRepository;
+    private final com.cozumtr.leave_management_system.repository.EmployeeRepository employeeRepository;
 
     /**
      * Sprint çakışma raporu endpoint'i (GET - Sprint ID ile).
@@ -44,13 +45,13 @@ public class ReportingController {
     @GetMapping("/sprint-overlap")
     public ResponseEntity<SprintOverlapReportDTO> getSprintOverlapReport(
             @RequestParam(required = true) Long sprintId) {
-        
+
         Sprint sprint = sprintRepository.findById(sprintId)
                 .orElseThrow(() -> new BusinessException("Sprint bulunamadı: " + sprintId));
-        
+
         LocalDateTime sprintStartDateTime = sprint.getStartDate().atStartOfDay();
         LocalDateTime sprintEndDateTime = sprint.getEndDate().atTime(23, 59, 59);
-        
+
         SprintOverlapReportDTO report = leaveRequestService.generateSprintOverlapReport(
                 sprintStartDateTime, sprintEndDateTime);
         return ResponseEntity.ok(report);
@@ -67,11 +68,11 @@ public class ReportingController {
     @PostMapping("/sprint-overlap")
     public ResponseEntity<SprintOverlapReportDTO> getSprintOverlapReportWithDates(
             @Valid @RequestBody SprintOverlapReportRequest request) {
-        
+
         // Manuel girilen tarihleri LocalDateTime'a çevir
         LocalDateTime sprintStartDateTime = request.getSprintStart().atStartOfDay();
         LocalDateTime sprintEndDateTime = request.getSprintEnd().atTime(23, 59, 59);
-        
+
         SprintOverlapReportDTO report = leaveRequestService.generateSprintOverlapReport(
                 sprintStartDateTime, sprintEndDateTime);
         return ResponseEntity.ok(report);
@@ -79,13 +80,35 @@ public class ReportingController {
 
     /**
      * Tüm sprint'leri listeler (Frontend dropdown için).
+     * HR ve CEO tüm sprintleri görür.
+     * MANAGER sadece kendi departmanına ait sprintleri görür.
      *
      * @return Sprint listesi
      */
     @PreAuthorize("hasAnyRole('HR', 'MANAGER', 'CEO')")
     @GetMapping("/sprints")
     public ResponseEntity<List<SprintResponse>> getAllSprints() {
-        List<Sprint> sprints = sprintRepository.findAll();
+        String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+        com.cozumtr.leave_management_system.entities.Employee employee = employeeRepository.findByEmail(email)
+                .orElseThrow(() -> new BusinessException("Kullanıcı bulunamadı"));
+
+        // Kullanıcının rollerini kontrol et
+        boolean isHrOrCeo = employee.getUser().getRoles().stream()
+                .anyMatch(role -> role.getRoleName().equals("HR") || role.getRoleName().equals("CEO"));
+
+        List<Sprint> sprints;
+        if (isHrOrCeo) {
+            // HR veya CEO ise tüm sprintleri getir
+            sprints = sprintRepository.findAll();
+        } else {
+            // Sadece MANAGER ise (veya standart çalışan ama rapora erişimi varsa), kendi departmanını getir
+            if (employee.getDepartment() == null) {
+                // Departmanı yoksa boş liste dön
+                return ResponseEntity.ok(List.of());
+            }
+            sprints = sprintRepository.findByDepartmentId(employee.getDepartment().getId());
+        }
+
         List<SprintResponse> sprintResponses = sprints.stream()
                 .map(sprint -> SprintResponse.builder()
                         .id(sprint.getId())
@@ -111,23 +134,23 @@ public class ReportingController {
     @GetMapping("/sprint-overlap/export")
     public ResponseEntity<byte[]> exportSprintOverlapReportToExcel(
             @RequestParam(required = true) Long sprintId) throws IOException {
-        
+
         Sprint sprint = sprintRepository.findById(sprintId)
                 .orElseThrow(() -> new BusinessException("Sprint bulunamadı: " + sprintId));
-        
+
         LocalDateTime sprintStartDateTime = sprint.getStartDate().atStartOfDay();
         LocalDateTime sprintEndDateTime = sprint.getEndDate().atTime(23, 59, 59);
         String sprintName = sprint.getName();
-        
+
         SprintOverlapReportDTO report = leaveRequestService.generateSprintOverlapReport(
                 sprintStartDateTime, sprintEndDateTime);
-        
+
         // Excel dosyası oluştur
         byte[] excelBytes = createExcelFile(report, sprintName, sprintStartDateTime.toLocalDate(), sprintEndDateTime.toLocalDate());
-        
+
         // Dosya adı oluştur
         String fileName = "Sprint_Cakisma_Raporu_" + sprintName.replaceAll("[^a-zA-Z0-9]", "_") + ".xlsx";
-        
+
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"")
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
@@ -145,20 +168,20 @@ public class ReportingController {
     @PostMapping("/sprint-overlap/export")
     public ResponseEntity<byte[]> exportSprintOverlapReportToExcelPost(
             @Valid @RequestBody SprintOverlapReportRequest request) throws IOException {
-        
+
         LocalDateTime sprintStartDateTime = request.getSprintStart().atStartOfDay();
         LocalDateTime sprintEndDateTime = request.getSprintEnd().atTime(23, 59, 59);
         String sprintName = request.getSprintStart() + "_" + request.getSprintEnd();
-        
+
         SprintOverlapReportDTO report = leaveRequestService.generateSprintOverlapReport(
                 sprintStartDateTime, sprintEndDateTime);
-        
+
         // Excel dosyası oluştur
         byte[] excelBytes = createExcelFile(report, sprintName, request.getSprintStart(), request.getSprintEnd());
-        
+
         // Dosya adı oluştur
         String fileName = "Sprint_Cakisma_Raporu_" + sprintName.replaceAll("[^a-zA-Z0-9]", "_") + ".xlsx";
-        
+
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"")
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
@@ -168,11 +191,11 @@ public class ReportingController {
     /**
      * Excel dosyası oluşturur.
      */
-    private byte[] createExcelFile(SprintOverlapReportDTO report, String sprintName, 
+    private byte[] createExcelFile(SprintOverlapReportDTO report, String sprintName,
                                    LocalDate startDate, LocalDate endDate) throws IOException {
         Workbook workbook = new XSSFWorkbook();
         Sheet sheet = workbook.createSheet("Sprint Çakışma Raporu");
-        
+
         // Stil tanımlamaları
         CellStyle headerStyle = workbook.createCellStyle();
         Font headerFont = workbook.createFont();
@@ -185,13 +208,13 @@ public class ReportingController {
         headerStyle.setBorderTop(BorderStyle.THIN);
         headerStyle.setBorderLeft(BorderStyle.THIN);
         headerStyle.setBorderRight(BorderStyle.THIN);
-        
+
         CellStyle dataStyle = workbook.createCellStyle();
         dataStyle.setBorderBottom(BorderStyle.THIN);
         dataStyle.setBorderTop(BorderStyle.THIN);
         dataStyle.setBorderLeft(BorderStyle.THIN);
         dataStyle.setBorderRight(BorderStyle.THIN);
-        
+
         CellStyle totalStyle = workbook.createCellStyle();
         Font totalFont = workbook.createFont();
         totalFont.setBold(true);
@@ -202,27 +225,27 @@ public class ReportingController {
         totalStyle.setBorderTop(BorderStyle.THIN);
         totalStyle.setBorderLeft(BorderStyle.THIN);
         totalStyle.setBorderRight(BorderStyle.THIN);
-        
+
         int rowNum = 0;
-        
+
         // Başlık satırı
         Row titleRow = sheet.createRow(rowNum++);
         Cell titleCell = titleRow.createCell(0);
         titleCell.setCellValue("Sprint Çakışma Raporu");
         titleCell.setCellStyle(headerStyle);
-        
+
         // Sprint bilgileri
         Row sprintInfoRow = sheet.createRow(rowNum++);
         sprintInfoRow.createCell(0).setCellValue("Sprint:");
         sprintInfoRow.createCell(1).setCellValue(sprintName);
-        
+
         Row dateRow = sheet.createRow(rowNum++);
         dateRow.createCell(0).setCellValue("Tarih Aralığı:");
-        dateRow.createCell(1).setCellValue(startDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")) + 
-                                          " - " + endDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")));
-        
+        dateRow.createCell(1).setCellValue(startDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")) +
+                " - " + endDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")));
+
         rowNum++; // Boş satır
-        
+
         // Toplam kayıp saati
         Row totalRow = sheet.createRow(rowNum++);
         Cell totalLabelCell = totalRow.createCell(0);
@@ -233,9 +256,9 @@ public class ReportingController {
         totalValueCell.setCellStyle(totalStyle);
         totalRow.createCell(2).setCellValue("saat");
         totalRow.getCell(2).setCellStyle(totalStyle);
-        
+
         rowNum++; // Boş satır
-        
+
         // Tablo başlıkları
         Row headerRow = sheet.createRow(rowNum++);
         String[] headers = {"Çalışan Adı", "İzin Türü", "İzin Başlangıç", "İzin Bitiş", "Çakışan Saat"};
@@ -244,35 +267,35 @@ public class ReportingController {
             cell.setCellValue(headers[i]);
             cell.setCellStyle(headerStyle);
         }
-        
+
         // Veri satırları
         DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
         for (var leave : report.getOverlappingLeaves()) {
             Row row = sheet.createRow(rowNum++);
-            
+
             row.createCell(0).setCellValue(leave.getEmployeeFullName());
             row.createCell(1).setCellValue(leave.getLeaveTypeName());
             row.createCell(2).setCellValue(leave.getLeaveStartDate().format(dateFormatter));
             row.createCell(3).setCellValue(leave.getLeaveEndDate().format(dateFormatter));
             row.createCell(4).setCellValue(leave.getOverlappingHours().doubleValue());
-            
+
             // Stil uygula
             for (int i = 0; i < headers.length; i++) {
                 row.getCell(i).setCellStyle(dataStyle);
             }
         }
-        
+
         // Sütun genişliklerini ayarla
         for (int i = 0; i < headers.length; i++) {
             sheet.autoSizeColumn(i);
             sheet.setColumnWidth(i, sheet.getColumnWidth(i) + 1000); // Biraz ekstra boşluk
         }
-        
+
         // Excel'i byte array'e çevir
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         workbook.write(outputStream);
         workbook.close();
-        
+
         return outputStream.toByteArray();
     }
 }

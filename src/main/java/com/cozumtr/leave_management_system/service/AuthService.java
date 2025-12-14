@@ -4,6 +4,7 @@ import com.cozumtr.leave_management_system.dto.request.LoginRequestDto;
 import com.cozumtr.leave_management_system.dto.request.RegisterRequestDto;
 import com.cozumtr.leave_management_system.dto.response.AuthResponseDto;
 import com.cozumtr.leave_management_system.dto.response.EmployeeResponseDto;
+import com.cozumtr.leave_management_system.enums.WorkType;
 import com.cozumtr.leave_management_system.exception.BusinessException;
 import com.cozumtr.leave_management_system.entities.Department;
 import com.cozumtr.leave_management_system.entities.Employee;
@@ -23,6 +24,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Optional;
 import java.util.Set;
@@ -43,6 +45,7 @@ public class AuthService {
     private final EmailService emailService;
     private final AuthenticationManager authenticationManager;
     private final SmsService smsService;
+    private final LeaveEntitlementService leaveEntitlementService;
 
     /**
      * 1. KULLANICI GİRİŞİ (login)
@@ -184,6 +187,16 @@ public class AuthService {
         user.getRoles().add(hrRole);
 
         userRepository.save(user);
+        
+        // İzin hakkı oluştur (mevcut yıl için)
+        try {
+            int currentYear = LocalDate.now().getYear();
+            leaveEntitlementService.createLeaveEntitlementForYear(employee, currentYear);
+            log.info("İlk admin kullanıcı için izin hakkı oluşturuldu: {}", adminEmail);
+        } catch (Exception e) {
+            log.error("İzin hakkı oluşturulurken hata: {} - {}", adminEmail, e.getMessage());
+        }
+        
         log.info("İlk admin kullanıcı oluşturuldu: {}", adminEmail);
     }
 
@@ -212,6 +225,14 @@ public class AuthService {
         employee.setBirthDate(LocalDate.now().minusYears(25)); // Demo için - gerçek sistemde request'ten gelecek
         employee.setHireDate(LocalDate.now());
         employee.setDailyWorkHours(request.getDailyWorkHours());
+
+        // Günlük çalışma saatine göre çalışma tipini belirle
+        if (request.getDailyWorkHours().compareTo(new BigDecimal("8")) >= 0) {
+            employee.setWorkType(WorkType.FULL_TIME);
+        } else {
+            employee.setWorkType(WorkType.PART_TIME);
+        }
+
         employee.setIsActive(false); // Henüz aktif değil
 
         employee.setDepartment(department);
@@ -230,9 +251,12 @@ public class AuthService {
         user.setPasswordResetExpires(java.time.LocalDateTime.now().plusHours(24)); // 24 saat geçerli
 
         // İK'nın belirttiği rolü ekle
-        Role role = roleRepository.findById(request.getRoleId())
-                .orElseThrow(() -> new BusinessException("Rol bulunamadı: " + request.getRoleId()));
-        user.getRoles().add(role);
+        // Eğer roleId verilmişse, o rolü ekle
+        if (request.getRoleId() != null) {
+            Role role = roleRepository.findById(request.getRoleId())
+                    .orElseThrow(() -> new BusinessException("Rol bulunamadı: " + request.getRoleId()));
+            user.getRoles().add(role);
+        }
 
         // Default EMPLOYEE rolünü ekle (her kullanıcı aynı zamanda EMPLOYEE'dir)
         // Eğer seçilen rol zaten EMPLOYEE ise, Set duplicate'ı engelleyecektir
@@ -291,6 +315,16 @@ public class AuthService {
         Employee employee = user.getEmployee();
         employee.setIsActive(true);
         employeeRepository.save(employee);
+
+        // İzin hakkı oluştur (mevcut yıl için)
+        try {
+            int currentYear = LocalDate.now().getYear();
+            leaveEntitlementService.createLeaveEntitlementForYear(employee, currentYear);
+            log.info("Kullanıcı için izin hakkı oluşturuldu: {}", employee.getEmail());
+        } catch (Exception e) {
+            log.error("İzin hakkı oluşturulurken hata: {} - {}", employee.getEmail(), e.getMessage());
+            // Hata olsa bile aktivasyon devam etsin
+        }
 
         log.info("Kullanıcı hesabı aktifleştirildi: {}", employee.getEmail());
 
@@ -450,12 +484,17 @@ public class AuthService {
      * @return AuthResponseDto
      */
     private AuthResponseDto mapToAuthResponse(String token, User user, Set<String> roles) {
+        String departmentName = null;
+        if (user.getEmployee() != null && user.getEmployee().getDepartment() != null) {
+            departmentName = user.getEmployee().getDepartment().getName();
+        }
         return AuthResponseDto.builder()
                 .token(token)
                 .tokenType("Bearer")
                 .userId(user.getId())
                 .userEmail(user.getEmployee().getEmail())
                 .roles(roles)
+                .departmentName(departmentName)
                 .build();
     }
 

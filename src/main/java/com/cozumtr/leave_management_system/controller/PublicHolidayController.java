@@ -1,5 +1,6 @@
 package com.cozumtr.leave_management_system.controller;
 
+import com.cozumtr.leave_management_system.dto.request.BulkHolidayCreateRequest;
 import com.cozumtr.leave_management_system.dto.request.PublicHolidayCreateRequest;
 import com.cozumtr.leave_management_system.dto.request.PublicHolidayUpdateRequest;
 import com.cozumtr.leave_management_system.dto.response.PublicHolidayResponse;
@@ -35,13 +36,37 @@ public class PublicHolidayController {
     }
 
     /**
-     * Tüm resmi tatilleri getirir.
+     * Toplu resmi tatil oluşturur (şablon tabanlı).
      */
     @PreAuthorize("hasRole('HR')")
+    @PostMapping("/bulk")
+    public ResponseEntity<List<PublicHolidayResponse>> createBulkHolidays(@Valid @RequestBody BulkHolidayCreateRequest request) {
+        List<PublicHolidayResponse> response = publicHolidayService.createBulkHolidays(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    /**
+     * Tüm resmi tatilleri getirir veya yıla göre filtreler.
+     */
     @GetMapping
-    public ResponseEntity<List<PublicHolidayResponse>> getAllPublicHolidays() {
-        List<PublicHolidayResponse> publicHolidays = publicHolidayService.getAllPublicHolidays();
+    public ResponseEntity<List<PublicHolidayResponse>> getAllPublicHolidays(
+            @RequestParam(required = false) Integer year) {
+        List<PublicHolidayResponse> publicHolidays;
+        if (year != null) {
+            publicHolidays = publicHolidayService.getHolidaysByYear(year);
+        } else {
+            publicHolidays = publicHolidayService.getAllPublicHolidays();
+        }
         return ResponseEntity.ok(publicHolidays);
+    }
+
+    /**
+     * Yaklaşan resmi tatilleri getirir (90 gün içinde).
+     * Tüm kullanıcılar erişebilir.
+     */
+    @GetMapping("/upcoming")
+    public ResponseEntity<List<PublicHolidayResponse>> getUpcomingHolidays() {
+        return ResponseEntity.ok(publicHolidayService.getUpcomingHolidays());
     }
 
     /**

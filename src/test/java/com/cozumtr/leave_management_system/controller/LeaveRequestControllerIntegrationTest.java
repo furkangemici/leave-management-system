@@ -1137,9 +1137,11 @@ class LeaveRequestControllerIntegrationTest {
         // Given: Resmi tatil günü oluştur
         LocalDate holidayDate = LocalDate.of(2026, 1, 14); // Çarşamba
         PublicHoliday holiday = new PublicHoliday();
-        holiday.setDate(holidayDate);
+        holiday.setStartDate(holidayDate);
+        holiday.setEndDate(holidayDate);
+        holiday.setYear(2026);
         holiday.setName("Test Tatili");
-        holiday.setHalfDay(false); // Tam gün tatil
+        holiday.setIsHalfDay(false); // Tam gün tatil
         publicHolidayRepository.save(holiday);
 
         // Salı'dan Perşembe'ye izin (Çarşamba resmi tatil)
@@ -1183,9 +1185,11 @@ class LeaveRequestControllerIntegrationTest {
         // Given: Yarım gün tatil (arife) oluştur
         LocalDate arifeDate = LocalDate.of(2026, 1, 14); // Çarşamba
         PublicHoliday arife = new PublicHoliday();
-        arife.setDate(arifeDate);
+        arife.setStartDate(arifeDate);
+        arife.setEndDate(arifeDate);
+        arife.setYear(2026);
         arife.setName("Arife Günü");
-        arife.setHalfDay(true); // Yarım gün tatil
+        arife.setIsHalfDay(true); // Yarım gün tatil
         publicHolidayRepository.save(arife);
 
         // Çarşamba günü izin (yarım gün tatil)
@@ -1231,9 +1235,11 @@ class LeaveRequestControllerIntegrationTest {
 
         // Salı günü resmi tatil oluştur
         PublicHoliday holiday = new PublicHoliday();
-        holiday.setDate(tuesday);
+        holiday.setStartDate(tuesday);
+        holiday.setEndDate(tuesday);
+        holiday.setYear(2026);
         holiday.setName("Test Tatili");
-        holiday.setHalfDay(false); // Tam gün tatil
+        holiday.setIsHalfDay(false); // Tam gün tatil
         publicHolidayRepository.save(holiday);
 
         LocalDateTime startDate = thursday.atTime(9, 0);
@@ -1273,9 +1279,11 @@ class LeaveRequestControllerIntegrationTest {
         // Given: Sadece resmi tatil gününde izin
         LocalDate holidayDate = LocalDate.of(2026, 1, 14); // Çarşamba
         PublicHoliday holiday = new PublicHoliday();
-        holiday.setDate(holidayDate);
+        holiday.setStartDate(holidayDate);
+        holiday.setEndDate(holidayDate);
+        holiday.setYear(2026);
         holiday.setName("Test Tatili");
-        holiday.setHalfDay(false); // Tam gün tatil
+        holiday.setIsHalfDay(false); // Tam gün tatil
         publicHolidayRepository.save(holiday);
 
         LocalDateTime startDate = holidayDate.atTime(9, 0);
@@ -1647,4 +1655,5 @@ class LeaveRequestControllerIntegrationTest {
         return (String) map.get("token");
     }
 }
+
 

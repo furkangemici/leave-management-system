@@ -28,17 +28,21 @@ public class InitialDataSeeder implements CommandLineRunner {
     private final EmployeeRepository employeeRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final LeaveEntitlementRepository leaveEntitlementRepository;
+    private final HolidayTemplateRepository holidayTemplateRepository;
 
     @Override
     public void run(String... args) {
         log.info("🚀 InitialDataSeeder başlatılıyor...");
 
+        createHolidayTemplates();
         createPermissions();
         createRoles();
         createDepartments();
         createLeaveTypes();
         createUsers();
         assignDepartmentManagers();
+        createLeaveEntitlements();
 
         log.info("✅ InitialDataSeeder tamamlandı!");
     }
@@ -146,42 +150,45 @@ public class InitialDataSeeder implements CommandLineRunner {
         log.info("🚀 Kullanıcılar oluşturuluyor...");
         String defaultPassword = "Password123!";
 
-        // Kullanıcı Listesi
+        // Kullanıcı Listesi - Farklı kıdemlerle test için
+        // 0 gün izin hakkı (yeni işe başlayan - 0 yıl kıdem)
         createUser("muhasebeci@sirket.com", "Muhasebeci", "User", "Muhasebe Uzmanı",
-                "ACCOUNTING", "Finans", defaultPassword);
+                "ACCOUNTING", "Finans", defaultPassword, LocalDate.now());
 
+        // 14 gün izin hakkı (1-5 yıl arası kıdem)
         createUser("ik@sirket.com", "İK", "User", "İnsan Kaynakları Uzmanı",
-                "HR", "İnsan Kaynakları", defaultPassword);
+                "HR", "İnsan Kaynakları", defaultPassword, LocalDate.now().minusYears(2));
 
         createUserWithMultipleRoles("ik.yonetici@sirket.com", "İK ", "Yöneticisi",
                 "İnsan Kaynakları Müdürü", List.of("HR", "MANAGER"),
-                "İnsan Kaynakları", defaultPassword);
+                "İnsan Kaynakları", defaultPassword, LocalDate.now().minusYears(3));
 
         createUser("pazarlama.calisan@sirket.com", "Pazarlama", "Çalışan", "Pazarlama Uzmanı",
-                "EMPLOYEE", "Satış ve Pazarlama", defaultPassword);
+                "EMPLOYEE", "Satış ve Pazarlama", defaultPassword, LocalDate.now().minusYears(1).minusMonths(6));
 
         createUser("pazarlama.yonetici@sirket.com", "Pazarlama", "Yöneticisi", "Pazarlama Müdürü",
-                "MANAGER", "Satış ve Pazarlama", defaultPassword);
+                "MANAGER", "Satış ve Pazarlama", defaultPassword, LocalDate.now().minusYears(4));
 
+        // 20 gün izin hakkı (5+ yıl kıdem)
         createUser("urun.gelistirme.calisan@sirket.com", "Ürün Geliştirme", "Çalışan",
-                "Yazılım Geliştirici", "EMPLOYEE", "Ürün Geliştirme", defaultPassword);
+                "Yazılım Geliştirici", "EMPLOYEE", "Ürün Geliştirme", defaultPassword, LocalDate.now().minusYears(6));
 
         createUser("urun.gelistirme.yonetici@sirket.com", "Ürün Geliştirme", "Yöneticisi",
-                "Yazılım Geliştirme Müdürü", "MANAGER", "Ürün Geliştirme", defaultPassword);
+                "Yazılım Geliştirme Müdürü", "MANAGER", "Ürün Geliştirme", defaultPassword, LocalDate.now().minusYears(7));
 
         createUser("genel.mudur@sirket.com", "Genel", "Müdür", "Genel Müdür",
-                "CEO", "Yönetim", defaultPassword);
+                "CEO", "Yönetim", defaultPassword, LocalDate.now().minusYears(10));
     }
 
     private void createUser(String email, String firstName, String lastName, String jobTitle,
-                            String roleName, String deptName, String password) {
+                            String roleName, String deptName, String password, LocalDate hireDate) {
         createUserWithMultipleRoles(email, firstName, lastName, jobTitle,
-                Collections.singletonList(roleName), deptName, password);
+                Collections.singletonList(roleName), deptName, password, hireDate);
     }
 
     private void createUserWithMultipleRoles(String email, String firstName, String lastName,
                                              String jobTitle, List<String> roleNames,
-                                             String deptName, String password) {
+                                             String deptName, String password, LocalDate hireDate) {
         try {
             // Department Bul
             Department dept = departmentRepository.findByName(deptName)
@@ -207,7 +214,7 @@ public class InitialDataSeeder implements CommandLineRunner {
             employee.setEmail(email);
             employee.setJobTitle(jobTitle);
             employee.setBirthDate(LocalDate.now().minusYears(30));
-            employee.setHireDate(LocalDate.now());
+            employee.setHireDate(hireDate);
             employee.setDailyWorkHours(BigDecimal.valueOf(8.0));
             employee.setIsActive(true);
             employee.setDepartment(dept);
@@ -256,5 +263,104 @@ public class InitialDataSeeder implements CommandLineRunner {
                 log.info("✅ {} yöneticisi atandı.", deptName);
             }
         }
+    }
+
+    /**
+     * Test için kullanıcılara izin hakları oluşturur.
+     * Kıdeme göre otomatik hesaplama yapılır:
+     * - 0-1 yıl: 0 gün
+     * - 1-5 yıl: 14 gün
+     * - 5+ yıl: 20 gün
+     */
+    private void createLeaveEntitlements() {
+        if (leaveEntitlementRepository.count() > 0) return;
+
+        log.info("🚀 İzin hakları oluşturuluyor...");
+        int currentYear = LocalDate.now().getYear();
+
+        List<Employee> employees = employeeRepository.findAll();
+        for (Employee employee : employees) {
+            try {
+                // Kıdeme göre izin günü hesapla
+                long yearsOfService = employee.getYearsOfServiceAsOf(LocalDate.now());
+                int daysEntitled;
+                
+                if (yearsOfService < 1) {
+                    daysEntitled = 0;
+                } else if (yearsOfService < 5) {
+                    daysEntitled = 14;
+                } else {
+                    daysEntitled = 20;
+                }
+
+                // Günlük çalışma saati
+                BigDecimal dailyWorkHours = employee.getDailyWorkHours();
+                if (dailyWorkHours == null || dailyWorkHours.compareTo(BigDecimal.ZERO) <= 0) {
+                    dailyWorkHours = BigDecimal.valueOf(8.0);
+                }
+
+                // Toplam saat hesapla
+                BigDecimal totalHours = dailyWorkHours.multiply(BigDecimal.valueOf(daysEntitled));
+
+                // LeaveEntitlement oluştur
+                LeaveEntitlement entitlement = new LeaveEntitlement();
+                entitlement.setEmployee(employee);
+                entitlement.setYear(currentYear);
+                entitlement.setTotalHoursEntitled(totalHours);
+                entitlement.setHoursUsed(BigDecimal.ZERO);
+                entitlement.setCarriedForwardHours(BigDecimal.ZERO);
+
+                leaveEntitlementRepository.save(entitlement);
+                
+                log.info("✅ {} için {} gün ({} saat) izin hakkı oluşturuldu (Kıdem: {} yıl)",
+                        employee.getEmail(), daysEntitled, totalHours, yearsOfService);
+
+            } catch (Exception e) {
+                log.error("❌ {} için izin hakkı oluşturulamadı: {}", employee.getEmail(), e.getMessage());
+            }
+        }
+    }
+    
+    /**
+     * Türkiye resmi tatil şablonlarını oluşturur.
+     */
+    private void createHolidayTemplates() {
+        if (holidayTemplateRepository.count() > 0) {
+            log.info("✅ Tatil şablonları zaten mevcut, atlanıyor...");
+            return;
+        }
+
+        log.info("🚀 Tatil şablonları oluşturuluyor...");
+
+        List<HolidayTemplate> templates = Arrays.asList(
+                // Sabit tatiller
+                createTemplate("Yılbaşı", "YILBASI", 1, false, false, "01-01"),
+                createTemplate("Ulusal Egemenlik ve Çocuk Bayramı", "23_NISAN", 1, false, false, "04-23"),
+                createTemplate("Emek ve Dayanışma Günü", "1_MAYIS", 1, false, false, "05-01"),
+                createTemplate("Gençlik ve Spor Bayramı", "19_MAYIS", 1, false, false, "05-19"),
+                createTemplate("Demokrasi ve Milli Birlik Günü", "15_TEMMUZ", 1, false, false, "07-15"),
+                createTemplate("Zafer Bayramı", "30_AGUSTOS", 1, false, false, "08-30"),
+                createTemplate("Cumhuriyet Bayramı", "29_EKIM", 1, true, false, "10-29"),
+
+                // Hareketli tatiller (dini bayramlar)
+                createTemplate("Ramazan Bayramı", "RAMAZAN_BAYRAMI", 3, true, true, null),
+                createTemplate("Kurban Bayramı", "KURBAN_BAYRAMI", 4, true, true, null)
+        );
+
+        holidayTemplateRepository.saveAll(templates);
+        log.info("✅ {} tatil şablonu oluşturuldu", templates.size());
+    }
+
+    private HolidayTemplate createTemplate(String name, String code, Integer durationDays,
+                                           Boolean isHalfDayBefore, Boolean isMovable, String fixedDate) {
+        HolidayTemplate template = new HolidayTemplate();
+        template.setName(name);
+        template.setCode(code);
+        template.setDurationDays(durationDays);
+        template.setIsHalfDayBefore(isHalfDayBefore);
+        template.setIsMovable(isMovable);
+        template.setFixedDate(fixedDate);
+        template.setIsActive(true);
+        return template;
     }
 }

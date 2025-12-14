@@ -9,8 +9,10 @@ import java.util.Set;
 @Builder
 public class AuthResponseDto {
     private String token;
+    @Builder.Default
     private String tokenType = "Bearer"; // JWT standardı
     private Long userId;
     private String userEmail;
     private Set<String> roles;
+    private String departmentName;
 }
