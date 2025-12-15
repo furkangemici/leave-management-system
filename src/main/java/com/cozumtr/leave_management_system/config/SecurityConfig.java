@@ -1,6 +1,8 @@
 package com.cozumtr.leave_management_system.config;
 
 import com.cozumtr.leave_management_system.filter.JwtAuthenticationFilter;
+import com.cozumtr.leave_management_system.security.OAuth2SuccessHandler;
+import com.cozumtr.leave_management_system.service.CustomOAuth2UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -28,6 +30,8 @@ public class SecurityConfig {
     private final UserDetailsService userDetailsService;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final CorsConfigurationSource corsConfigurationSource;
+    private final CustomOAuth2UserService customOAuth2UserService;
+    private final OAuth2SuccessHandler oAuth2SuccessHandler;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -55,7 +59,9 @@ public class SecurityConfig {
                                 "/api/auth/forgot-password",    // Şifremi unuttum - talep etme
                                 "/api/auth/validate-reset-token", // Token doğrulama
                                 "/api/auth/reset-password",     // Şifre sıfırlama
-                                "/api/seed/**" 
+                                "/api/seed/**",
+                                "/login/oauth2/**",             // OAuth2 login endpoints
+                                "/oauth2/**"                     // OAuth2 callback endpoints
                         ).permitAll()
 
                         // 2. İK/Admin endpoint'leri (sadece yetkili kullanıcılar)
@@ -65,6 +71,13 @@ public class SecurityConfig {
                         // 3. Tüm diğer API endpoint'leri için JWT token gerekli
                         // Rol kontrolleri @PreAuthorize ile metot seviyesinde yapılıyor
                         .anyRequest().authenticated()
+                )
+                // OAuth2 Login Configuration
+                .oauth2Login(oauth2 -> oauth2
+                        .userInfoEndpoint(userInfo -> userInfo
+                                .userService(customOAuth2UserService)
+                        )
+                        .successHandler(oAuth2SuccessHandler)
                 )
                 // JWT Filter'ı ekle (UsernamePasswordAuthenticationFilter'dan önce)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

@@ -54,6 +54,7 @@ public class LeaveRequestService {
     private final PublicHolidayRepository publicHolidayRepository;
     private final UserRepository userRepository;
     private final com.cozumtr.leave_management_system.service.LeaveAttachmentService leaveAttachmentService;
+    private final EmailService emailService;
 
     // --- İZİN TALEBİ OLUŞTURMA ---
     @Transactional
@@ -166,6 +167,9 @@ public class LeaveRequestService {
         if (file != null && !file.isEmpty()) {
             leaveAttachmentService.uploadAttachment(savedRequest.getId(), file);
         }
+
+        // BİLDİRİM A: İlk onaycıya sıra geldiğini bildir
+        notifyNextApprover(savedRequest, firstApproverRole);
 
         return mapToResponse(savedRequest);
     }
@@ -284,6 +288,10 @@ public class LeaveRequestService {
             leaveRequest.setRequestStatus(RequestStatus.APPROVED);
             leaveRequest.setWorkflowNextApproverRole(""); // Artık onaylayıcı yok (nullable değil, boş string kullanıyoruz)
             deductLeaveBalance(leaveRequest);
+            
+            // BİLDİRİM C: Nihai onay - Talep sahibine bildir
+            String approverName = approver.getFirstName() + " " + approver.getLastName();
+            emailService.sendFinalDecisionNotification(leaveRequest, true, approverName);
         } else {
             // Ara onay - Bir sonraki onaycıya geç
             String nextRole = workflowRoles[currentRoleIndex + 1].trim();
@@ -299,6 +307,13 @@ public class LeaveRequestService {
                 // Şimdilik PENDING_APPROVAL olarak bırakıyoruz
                 leaveRequest.setRequestStatus(RequestStatus.PENDING_APPROVAL);
             }
+            
+            // BİLDİRİM B: Aşamalı ilerleme - Talep sahibine bildir
+            String approverName = approver.getFirstName() + " " + approver.getLastName();
+            emailService.sendProgressNotification(leaveRequest, approverName, nextRole);
+            
+            // BİLDİRİM A: Sıradaki onaycıya bildir
+            notifyNextApprover(leaveRequest, nextRole);
         }
 
         // 6. Onay geçmişi kaydet
@@ -369,6 +384,10 @@ public class LeaveRequestService {
 
         // 7. İzin talebini kaydet
         LeaveRequest savedRequest = leaveRequestRepository.save(leaveRequest);
+        
+        // BİLDİRİM C: Nihai red - Talep sahibine bildir
+        String approverName = approver.getFirstName() + " " + approver.getLastName();
+        emailService.sendFinalDecisionNotification(leaveRequest, false, approverName);
 
         return mapToResponse(savedRequest);
     }
@@ -720,6 +739,7 @@ public class LeaveRequestService {
                 .startDate(leaveRequest.getStartDateTime())
                 .endDate(leaveRequest.getEndDateTime())
                 .duration(leaveRequest.getDurationHours())
+                .reason(leaveRequest.getReason())  
                 .currentStatus(leaveRequest.getRequestStatus())
                 .workflowNextApproverRole(leaveRequest.getWorkflowNextApproverRole())
                 .approvalHistory(history)
@@ -851,5 +871,64 @@ public class LeaveRequestService {
                 .totalLossHours(totalLossHours)
                 .overlappingLeaves(detailList)
                 .build();
+    }
+    
+    /**
+     * Sıradaki onaycıya bildirim gönderir
+     * MANAGER rolü için: Sadece talep sahibinin departmanındaki manager'lara bildirim gönderilir
+     * HR/CEO rolleri için: Tüm HR/CEO kullanıcılarına bildirim gönderilir
+     * 
+     * @param leaveRequest İzin talebi
+     * @param approverRole Onaycının rolü
+     */
+    private void notifyNextApprover(LeaveRequest leaveRequest, String approverRole) {
+        try {
+            List<com.cozumtr.leave_management_system.entities.User> approvers;
+            
+            // MANAGER rolü için departman bazlı filtreleme
+            if ("MANAGER".equals(approverRole)) {
+                Employee employee = leaveRequest.getEmployee();
+                if (employee.getDepartment() == null) {
+                    log.warn("⚠️ Çalışanın departmanı bulunamadı. Email bildirimi gönderilemedi. Talep: #{}", 
+                            leaveRequest.getId());
+                    return;
+                }
+                
+                Long departmentId = employee.getDepartment().getId();
+                approvers = userRepository.findActiveUsersByRoleAndDepartment(approverRole, departmentId);
+                
+                log.debug("🔍 MANAGER bildirimi: Departman ID={}, Bulunan manager sayısı={}", 
+                        departmentId, approvers.size());
+            } else {
+                // HR, CEO gibi roller için tüm kullanıcıları bul
+                approvers = userRepository.findActiveUsersByRole(approverRole);
+                
+                log.debug("🔍 {} bildirimi: Bulunan kullanıcı sayısı={}", 
+                        approverRole, approvers.size());
+            }
+            
+            if (approvers.isEmpty()) {
+                log.warn("⚠️ Rol '{}' için aktif onaycı bulunamadı. Email bildirimi gönderilemedi. Talep: #{}", 
+                        approverRole, leaveRequest.getId());
+                return;
+            }
+            
+            // Tüm onaycılara bildirim gönder
+            for (com.cozumtr.leave_management_system.entities.User approver : approvers) {
+                if (approver.getEmployee() != null && approver.getEmployee().getEmail() != null) {
+                    emailService.sendApprovalNotification(
+                        approver.getEmployee().getEmail(), 
+                        leaveRequest, 
+                        approverRole
+                    );
+                }
+            }
+            
+            log.info("✅ {} adet '{}' rolündeki onaycıya bildirim gönderildi. Talep: #{}", 
+                    approvers.size(), approverRole, leaveRequest.getId());
+        } catch (Exception e) {
+            log.error("❌ Onaycıya bildirim gönderilirken hata oluştu: {}", e.getMessage(), e);
+            // Email hatası kritik değil, işlem devam etsin
+        }
     }
 }

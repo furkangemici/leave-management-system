@@ -22,6 +22,7 @@ public class ManagerLeaveResponseDTO {
     private LocalDateTime startDate;
     private LocalDateTime endDate;
     private BigDecimal duration;
+    private String reason;  
     private RequestStatus currentStatus;
     private String workflowNextApproverRole;
     private List<ApprovalHistoryDTO> approvalHistory;

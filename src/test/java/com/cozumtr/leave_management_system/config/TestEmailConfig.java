@@ -1,13 +1,14 @@
 package com.cozumtr.leave_management_system.config;
 
+import com.cozumtr.leave_management_system.entities.LeaveRequest;
 import com.cozumtr.leave_management_system.service.EmailService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 
 /**
- * Test profilinde email gÃ¶nderimini gerÃ§ek SMTP Ã¼zerinden yapmamak iÃ§in
- * basit bir stub EmailService tanÄ±mÄ±.
+ * Test profilinde email gönderimini gerçek SMTP üzerinden yapmamak için
+ * basit bir stub EmailService tanımı.
  */
 @Configuration
 @Profile("test")
@@ -18,16 +19,32 @@ public class TestEmailConfig {
         return new EmailService() {
             @Override
             public void sendActivationEmail(String email, String activationToken) {
-                // no-op - test ortamÄ±nda gerÃ§ek mail gÃ¶nderilmez
+                // no-op - test ortamında gerçek mail gönderilmez
             }
 
             @Override
             public void sendPasswordResetEmail(String email, String resetToken) {
-                // no-op - test ortamÄ±nda gerÃ§ek mail gÃ¶nderilmez
+                // no-op - test ortamında gerçek mail gönderilmez
+            }
+
+            @Override
+            public void sendApprovalNotification(String approverEmail, LeaveRequest leaveRequest, String approverRole) {
+                // no-op - test ortamında gerçek mail gönderilmez
+            }
+
+            @Override
+            public void sendProgressNotification(LeaveRequest leaveRequest, String approverName, String nextApproverRole) {
+                // no-op - test ortamında gerçek mail gönderilmez
+            }
+
+            @Override
+            public void sendFinalDecisionNotification(LeaveRequest leaveRequest, boolean isApproved, String finalApproverName) {
+                // no-op - test ortamında gerçek mail gönderilmez
             }
         };
     }
 }
+
 
 
 

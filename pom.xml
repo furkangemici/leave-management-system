@@ -109,6 +109,12 @@
 			<scope>runtime</scope>
 		</dependency>
 
+		<!-- OAuth2 Client for Google Login -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-oauth2-client</artifactId>
+		</dependency>
+
 		<!-- Apache POI for Excel Export -->
 		<dependency>
 			<groupId>org.apache.poi</groupId>
@@ -124,6 +130,13 @@
 		<dependency>
 			<groupId>org.flywaydb</groupId>
 			<artifactId>flyway-database-postgresql</artifactId>
+		</dependency>
+
+		<!-- dotenv-java for .env file support -->
+		<dependency>
+			<groupId>io.github.cdimascio</groupId>
+			<artifactId>dotenv-java</artifactId>
+			<version>3.0.0</version>
 		</dependency>
 
 		<!-- Testcontainers for Integration Tests -->
