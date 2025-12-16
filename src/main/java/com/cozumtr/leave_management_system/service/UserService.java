@@ -26,12 +26,14 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
 
     /**
-     * Tüm aktif kullanıcıları listeler (sayfalama ile).
+     * Tüm kullanıcıları listeler (sayfalama ile).
      * Admin kullanıcı yönetimi sayfası için kullanılır.
      */
     @Transactional(readOnly = true)
     public Page<UserResponse> getAllUsers(String search, Pageable pageable) {
-        return userRepository.findAllByIsActive(true, pageable)
+        // search parametresi şu an kullanılmıyor, ileride eklenebilir.
+        // Tüm kullanıcıları getir (Aktif + Pasif)
+        return userRepository.findAll(pageable)
                 .map(user -> {
                     Employee employee = user.getEmployee();
                     return UserResponse.builder()
@@ -48,6 +50,7 @@ public class UserService {
                             .roles(user.getRoles().stream()
                                     .map(Role::getRoleName)
                                     .collect(Collectors.toSet()))
+                            .isActive(user.getIsActive())
                             .build();
                 });
     }
@@ -81,6 +84,32 @@ public class UserService {
         user.setFailedLoginAttempts(0);
         user.setPasswordResetToken(null);
         user.setPasswordResetExpires(null);
+
+        userRepository.save(user);
+    }
+
+    @Transactional
+    public void deactivateUser(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new BusinessException("Kullanıcı bulunamadı"));
+
+        user.setIsActive(false);
+        if (user.getEmployee() != null) {
+            user.getEmployee().setIsActive(false);
+        }
+
+        userRepository.save(user);
+    }
+
+    @Transactional
+    public void activateUser(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new BusinessException("Kullanıcı bulunamadı"));
+
+        user.setIsActive(true);
+        if (user.getEmployee() != null) {
+            user.getEmployee().setIsActive(true);
+        }
 
         userRepository.save(user);
     }

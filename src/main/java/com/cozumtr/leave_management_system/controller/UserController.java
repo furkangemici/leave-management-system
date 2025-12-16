@@ -40,5 +40,19 @@ public class UserController {
         Page<UserResponse> users = userService.getAllUsers(search, pageable);
         return ResponseEntity.ok(users);
     }
+
+    @PreAuthorize("hasRole('HR')")
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
+        userService.deactivateUser(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PreAuthorize("hasRole('HR')")
+    @PutMapping("/{id}/activate")
+    public ResponseEntity<Void> activateUser(@PathVariable Long id) {
+        userService.activateUser(id);
+        return ResponseEntity.ok().build();
+    }
 }
 

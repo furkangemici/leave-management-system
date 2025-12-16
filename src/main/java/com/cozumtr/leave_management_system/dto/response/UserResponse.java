@@ -17,4 +17,5 @@ public class UserResponse {
     private String departmentName;
     private String roleName;
     private java.util.Set<String> roles;
+    private Boolean isActive;
 }
