@@ -1,9 +1,10 @@
-package com.cozumtr.leave_management_system.service;
+package com.cozumtr.leave_management_system.controller;
 
 import com.cozumtr.leave_management_system.entities.Department;
 import com.cozumtr.leave_management_system.entities.Sprint;
 import com.cozumtr.leave_management_system.repository.DepartmentRepository;
 import com.cozumtr.leave_management_system.repository.SprintRepository;
+import com.cozumtr.leave_management_system.service.SprintPlanningService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

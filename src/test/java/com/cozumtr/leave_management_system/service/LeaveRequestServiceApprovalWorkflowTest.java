@@ -45,6 +45,8 @@ class LeaveRequestServiceApprovalWorkflowTest {
     @Mock
     private UserRepository userRepository;
     @Mock
+    private EmailService emailService;
+    @Mock
     private SecurityContext securityContext;
     @Mock
     private Authentication authentication;

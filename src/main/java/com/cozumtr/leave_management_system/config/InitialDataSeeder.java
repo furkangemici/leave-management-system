@@ -21,7 +21,6 @@ import java.util.*;
 @Profile("!test") 
 public class InitialDataSeeder implements CommandLineRunner {
 
-    private final PermissionRepository permissionRepository;
     private final RoleRepository roleRepository;
     private final DepartmentRepository departmentRepository;
     private final LeaveTypeRepository leaveTypeRepository;
@@ -36,7 +35,6 @@ public class InitialDataSeeder implements CommandLineRunner {
         log.info("🚀 InitialDataSeeder başlatılıyor...");
 
         createHolidayTemplates();
-        createPermissions();
         createRoles();
         createDepartments();
         createLeaveTypes();
@@ -47,49 +45,17 @@ public class InitialDataSeeder implements CommandLineRunner {
         log.info("✅ InitialDataSeeder tamamlandı!");
     }
 
-    private void createPermissions() {
-        if (permissionRepository.count() > 0) return;
-
-        String[] perms = {
-                "auth:token_refresh", "leave:create", "leave:view_own",
-                "report:view_team", "leave:approve_hr", "user:create",
-                "user:view_all", "report:view_all", "metadata:manage",
-                "leave:approve_ceo", "leave:approve_manager", "report:view_accounting"
-        };
-
-        for (String pName : perms) {
-            Permission p = new Permission();
-            p.setPermissionName(pName);
-            p.setIsActive(true);
-            permissionRepository.save(p);
-        }
-    }
-
     private void createRoles() {
         if (roleRepository.count() > 0) return;
 
-        Map<String, List<String>> rolePerms = Map.of(
-                "HR", List.of("auth:token_refresh", "leave:create", "leave:view_own", "leave:approve_hr",
-                        "user:create", "user:view_all", "report:view_all", "metadata:manage"),
-                "CEO", List.of("auth:token_refresh", "leave:create", "leave:view_own", "leave:approve_ceo", "report:view_all"),
-                "MANAGER", List.of("auth:token_refresh", "leave:create", "leave:view_own", "leave:approve_manager", "report:view_team"),
-                "ACCOUNTING", List.of("auth:token_refresh", "leave:create", "leave:view_own", "report:view_accounting"),
-                "EMPLOYEE", List.of("auth:token_refresh", "leave:create", "leave:view_own", "report:view_team")
-        );
+        String[] roles = {"HR", "CEO", "MANAGER", "ACCOUNTING", "EMPLOYEE"};
 
-        rolePerms.forEach((roleName, permNames) -> {
+        for (String roleName : roles) {
             Role role = new Role();
             role.setRoleName(roleName);
             role.setIsActive(true);
-            role = roleRepository.save(role);
-
-            Set<Permission> permissions = new HashSet<>();
-            for (String permName : permNames) {
-                permissionRepository.findByPermissionName(permName).ifPresent(permissions::add);
-            }
-            role.setPermissions(permissions);
             roleRepository.save(role);
-        });
+        }
     }
 
     private void createDepartments() {

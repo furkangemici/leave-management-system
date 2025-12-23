@@ -5,8 +5,6 @@ import com.cozumtr.leave_management_system.entities.LeaveRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
 /**
@@ -19,45 +17,23 @@ import org.springframework.stereotype.Service;
 @ConditionalOnProperty(name = "app.email.enabled", havingValue = "false", matchIfMissing = true)
 public class ConsoleEmailService implements EmailService {
 
-    private final JavaMailSender mailSender;
-
     @Value("${app.base-url:http://localhost:8080}")
     private String baseUrl;
     
     @Value("${app.frontend-url:http://localhost:5173}")
     private String frontendUrl;
 
-    public ConsoleEmailService(JavaMailSender mailSender) {
-        this.mailSender = mailSender;
-    }
-
     @Override
     public void sendActivationEmail(String email, String activationToken) {
         // Frontend'in aktivasyon sayfasına yönlendiren URL
         String activationLink = frontendUrl + "/activate-account?token=" + activationToken;
         
-        try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo(email);
-            message.setSubject("Hesap Aktivasyonu - İzin Takip Sistemi");
-            message.setText(
-                "Merhaba,\n\n" +
-                "İzin Takip Sistemine hoş geldiniz!\n\n" +
-                "Hesabınızı aktifleştirmek için aşağıdaki linke tıklayın ve şifrenizi belirleyin:\n\n" +
-                activationLink + "\n\n" +
-                "Bu link 24 saat geçerlidir.\n\n" +
-                "İyi çalışmalar!"
-            );
-            
-            mailSender.send(message);
-            log.info("Aktivasyon email'i gönderildi: {}", email);
-            log.info("🔑 TEST İÇİN TOKEN: {} | Aktivasyon Linki: {}", activationToken, activationLink);
-        } catch (Exception e) {
-            log.error("Email gönderme hatası: {}", e.getMessage());
-            // Email gönderilemese bile işlem devam etsin (demo için)
-            // Gerçek sistemde exception fırlatılabilir
-            log.info("🔑 TEST İÇİN TOKEN (Email gönderilemedi ama token burada): {} | Aktivasyon Linki: {}", activationToken, activationLink);
-        }
+        log.info("📧 [MOCK EMAIL] Aktivasyon Email'i");
+        log.info("   Alıcı: {}", email);
+        log.info("   Konu: Hesap Aktivasyonu - İzin Takip Sistemi");
+        log.info("🔑 TEST İÇİN TOKEN: {}", activationToken);
+        log.info("� Aktivasyon Linki: {}", activationLink);
+        log.info("   Bu link 24 saat geçerlidir.");
     }
 
     @Override
@@ -65,29 +41,12 @@ public class ConsoleEmailService implements EmailService {
         // Frontend'in şifre sıfırlama sayfasına yönlendiren URL
         String resetLink = frontendUrl + "/reset-password?token=" + resetToken;
         
-        try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo(email);
-            message.setSubject("Şifre Sıfırlama - İzin Takip Sistemi");
-            message.setText(
-                "Merhaba,\n\n" +
-                "Şifre sıfırlama talebiniz alınmıştır.\n\n" +
-                "Şifrenizi sıfırlamak için aşağıdaki linke tıklayın:\n\n" +
-                resetLink + "\n\n" +
-                "Bu link 15 dakika geçerlidir.\n\n" +
-                "Eğer bu talebi siz yapmadıysanız, lütfen bu e-postayı görmezden gelin.\n\n" +
-                "İyi çalışmalar!"
-            );
-            
-            mailSender.send(message);
-            log.info("Şifre sıfırlama email'i gönderildi: {}", email);
-            log.info("🔑 TEST İÇİN TOKEN: {} | Şifre Sıfırlama Linki: {}", resetToken, resetLink);
-        } catch (Exception e) {
-            log.error("Email gönderme hatası: {}", e.getMessage());
-            // Email gönderilemese bile işlem devam etsin (demo için)
-            // Gerçek sistemde exception fırlatılabilir
-            log.info("🔑 TEST İÇİN TOKEN (Email gönderilemedi ama token burada): {} | Şifre Sıfırlama Linki: {}", resetToken, resetLink);
-        }
+        log.info("📧 [MOCK EMAIL] Şifre Sıfırlama Email'i");
+        log.info("   Alıcı: {}", email);
+        log.info("   Konu: Şifre Sıfırlama - İzin Takip Sistemi");
+        log.info("🔑 TEST İÇİN TOKEN: {}", resetToken);
+        log.info("🔗 Şifre Sıfırlama Linki: {}", resetLink);
+        log.info("   Bu link 15 dakika geçerlidir.");
     }
 
     @Override
@@ -130,4 +89,3 @@ public class ConsoleEmailService implements EmailService {
         log.info("   Link: {}/my-leaves?requestId={}", frontendUrl, leaveRequest.getId());
     }
 }
-

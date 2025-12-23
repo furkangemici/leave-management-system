@@ -152,7 +152,7 @@ class PublicHolidayControllerIntegrationTest {
     void createPublicHoliday_WithHrRole_ShouldCreate() throws Exception {
         String requestBody = String.format("""
                 {
-                  "date": "%s",
+                  "startDate": "%s",
                   "name": "Yeni Yıl",
                   "isHalfDay": false
                 }
@@ -164,7 +164,7 @@ class PublicHolidayControllerIntegrationTest {
                         .content(requestBody))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").exists())
-                .andExpect(jsonPath("$.date").value(futureDate.toString()))
+                .andExpect(jsonPath("$.startDate").value(futureDate.toString()))
                 .andExpect(jsonPath("$.name").value("Yeni Yıl"))
                 .andExpect(jsonPath("$.isHalfDay").value(false));
     }
@@ -174,7 +174,7 @@ class PublicHolidayControllerIntegrationTest {
     void createPublicHoliday_WithoutHrRole_ShouldReturnForbidden() throws Exception {
         String requestBody = String.format("""
                 {
-                  "date": "%s",
+                  "startDate": "%s",
                   "name": "Yeni Yıl",
                   "isHalfDay": false
                 }
@@ -192,7 +192,7 @@ class PublicHolidayControllerIntegrationTest {
     void createPublicHoliday_PastDate_ShouldReturnBadRequest() throws Exception {
         String requestBody = String.format("""
                 {
-                  "date": "%s",
+                  "startDate": "%s",
                   "name": "Geçmiş Tatil",
                   "isHalfDay": false
                 }
@@ -211,7 +211,7 @@ class PublicHolidayControllerIntegrationTest {
         LocalDate today = LocalDate.now();
         String requestBody = String.format("""
                 {
-                  "date": "%s",
+                  "startDate": "%s",
                   "name": "Bugünün Tatili",
                   "isHalfDay": false
                 }
@@ -222,7 +222,7 @@ class PublicHolidayControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.date").value(today.toString()));
+                .andExpect(jsonPath("$.startDate").value(today.toString()));
     }
 
     @Test
@@ -240,7 +240,7 @@ class PublicHolidayControllerIntegrationTest {
 
         String requestBody = String.format("""
                 {
-                  "date": "%s",
+                  "startDate": "%s",
                   "name": "Yeni Tatil",
                   "isHalfDay": false
                 }
@@ -328,7 +328,7 @@ class PublicHolidayControllerIntegrationTest {
         LocalDate newDate = futureDate.plusDays(5);
         String requestBody = String.format("""
                 {
-                  "date": "%s",
+                  "startDate": "%s",
                   "name": "Güncellenmiş Tatil",
                   "isHalfDay": true
                 }
@@ -367,7 +367,7 @@ class PublicHolidayControllerIntegrationTest {
 
         String requestBody = String.format("""
                 {
-                  "date": "%s",
+                  "startDate": "%s",
                   "name": "Tatil 1",
                   "isHalfDay": false
                 }
@@ -385,7 +385,7 @@ class PublicHolidayControllerIntegrationTest {
     void updatePublicHoliday_NotFound_ShouldReturnBadRequest() throws Exception {
         String requestBody = String.format("""
                 {
-                  "date": "%s",
+                  "startDate": "%s",
                   "name": "Güncellenmiş Tatil",
                   "isHalfDay": false
                 }

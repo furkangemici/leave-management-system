@@ -188,8 +188,8 @@ class LeaveTypeControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("POST /api/metadata/leave-types - Token olmadan erişim engellenmeli")
-    void createLeaveType_WithoutToken_ShouldReturnForbidden() throws Exception {
+    @DisplayName("POST /api/metadata/leave-types - Token olmadan OAuth2 login'e yönlendirilmeli")
+    void createLeaveType_WithoutToken_ShouldRedirectToOAuth2() throws Exception {
         String requestBody = """
                 {
                   "name": "Yıllık İzin",
@@ -202,7 +202,7 @@ class LeaveTypeControllerIntegrationTest {
         mockMvc.perform(post("/api/metadata/leave-types")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isFound()); // 302 redirect to OAuth2 login
     }
 
     @Test
