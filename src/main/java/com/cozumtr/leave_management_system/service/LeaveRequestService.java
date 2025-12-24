@@ -13,6 +13,7 @@ import com.cozumtr.leave_management_system.entities.LeaveEntitlement;
 import com.cozumtr.leave_management_system.entities.LeaveRequest;
 import com.cozumtr.leave_management_system.entities.LeaveType;
 import com.cozumtr.leave_management_system.dto.response.ApprovalHistoryDTO;
+import com.cozumtr.leave_management_system.dto.response.AttachmentResponse;
 import com.cozumtr.leave_management_system.dto.response.ManagerLeaveResponseDTO;
 import com.cozumtr.leave_management_system.enums.RequestStatus;
 import com.cozumtr.leave_management_system.exception.BusinessException;
@@ -147,9 +148,43 @@ public class LeaveRequestService {
             );
         }
 
-        // Virgülle ayrılmış rollerden ilkini al (örn: "HR,MANAGER,CEO" -> "HR")
+        // Virgülle ayrılmış rolleri al (örn: "HR,MANAGER,CEO")
         String[] workflowRoles = workflowDefinition.split(",");
-        String firstApproverRole = workflowRoles[0].trim();
+
+        // Talep sahibinin rollerini al
+        com.cozumtr.leave_management_system.entities.User employeeUser = userRepository
+                .findByEmployeeEmail(employee.getEmail())
+                .orElseThrow(() -> new EntityNotFoundException("Kullanıcı bulunamadı: " + employee.getEmail()));
+
+        Set<String> employeeRoles = employeeUser.getRoles().stream()
+                .map(role -> role.getRoleName())
+                .collect(java.util.stream.Collectors.toSet());
+
+        // ÖNEMLİ: Kimse kendi iznini onaylayamaz!
+        // Talep sahibinin sahip olduğu en yüksek rolden sonraki ilk rol, ilk onaylayıcı olur.
+        // Örnek 1: Yönetici (MANAGER) izin talep ederse → Workflow'da MANAGER'a kadar olan tüm roller atlanır → CEO ilk onaylayıcı ✅
+        // Örnek 2: İK Çalışanı (HR) izin talep ederse → Workflow'da HR atlanır → MANAGER ilk onaylayıcı
+        // Örnek 3: Normal Çalışan (EMPLOYEE) → Tüm workflow normal işler (HR → MANAGER → CEO)
+
+        // Talep sahibinin workflow'daki en yüksek rol index'ini bul
+        int highestRoleIndex = -1;
+        for (int i = 0; i < workflowRoles.length; i++) {
+            String trimmedRole = workflowRoles[i].trim();
+            if (employeeRoles.contains(trimmedRole)) {
+                highestRoleIndex = i;
+            }
+        }
+
+        // İlk onaylayıcı rolünü belirle (en yüksek rolden sonraki ilk rol)
+        String firstApproverRole = null;
+        for (int i = highestRoleIndex + 1; i < workflowRoles.length; i++) {
+            firstApproverRole = workflowRoles[i].trim();
+            break;
+        }
+
+        // ÖZEL DURUM: CEO izin talep ediyorsa
+        // CEO'nun iznini onaylayacak kimse yok, otomatik onaylansın
+        boolean isCEORequest = employeeRoles.contains("CEO") && firstApproverRole == null;
 
         // 5. Kayıt
         LeaveRequest leaveRequest = new LeaveRequest();
@@ -159,8 +194,22 @@ public class LeaveRequestService {
         leaveRequest.setEndDateTime(request.getEndDate());
         leaveRequest.setDurationHours(duration);
         leaveRequest.setReason(request.getReason() != null ? request.getReason() : "");
-        leaveRequest.setRequestStatus(RequestStatus.PENDING_APPROVAL);
-        leaveRequest.setWorkflowNextApproverRole(firstApproverRole);
+        
+        if (isCEORequest) {
+            // CEO izni otomatik onaylansın
+            leaveRequest.setRequestStatus(RequestStatus.APPROVED);
+            leaveRequest.setWorkflowNextApproverRole(""); // Onay tamamlandı
+        } else {
+            // Normal workflow
+            if (firstApproverRole == null) {
+                throw new BusinessException(
+                        "İzin onay akışında size ait olmayan bir rol bulunamadı. " +
+                                "Lütfen İK departmanı ile iletişime geçin."
+                );
+            }
+            leaveRequest.setRequestStatus(RequestStatus.PENDING_APPROVAL);
+            leaveRequest.setWorkflowNextApproverRole(firstApproverRole);
+        }
 
         LeaveRequest savedRequest = leaveRequestRepository.save(leaveRequest);
 
@@ -168,8 +217,19 @@ public class LeaveRequestService {
             leaveAttachmentService.uploadAttachment(savedRequest.getId(), file);
         }
 
-        // BİLDİRİM A: İlk onaycıya sıra geldiğini bildir
-        notifyNextApprover(savedRequest, firstApproverRole);
+        if (isCEORequest) {
+            // CEO izni otomatik onaylandı, bakiyeyi düşür
+            deductLeaveBalance(savedRequest);
+            
+            // CEO için onay geçmişi oluştur (otomatik onay)
+            saveApprovalHistory(savedRequest, employee, RequestStatus.APPROVED, 
+                "Otomatik onay - CEO izni onaylayacak üst yetkili bulunmamaktadır");
+            
+            log.info("CEO izin talebi otomatik onaylandı: {}", savedRequest.getId());
+        } else {
+            // BİLDİRİM A: İlk onaycıya sıra geldiğini bildir
+            notifyNextApprover(savedRequest, firstApproverRole);
+        }
 
         return mapToResponse(savedRequest);
     }
@@ -260,6 +320,35 @@ public class LeaveRequestService {
                                         .map(role -> role.getRoleName())
                                         .collect(java.util.stream.Collectors.joining(", ")))
                 ));
+
+        // ÖNEMLİ 1: Kimse kendi iznini onaylayamaz!
+        if (leaveRequest.getEmployee().getId().equals(approver.getId())) {
+            throw new BusinessException(
+                    "Kendi izin talebinizi onaylayamazsınız! " +
+                            "İzin talebiniz workflow'a göre bir sonraki onaylayıcıya iletilmelidir."
+            );
+        }
+
+        // ÖNEMLİ 2: İK çalışanının izin talebini sadece İK yöneticisi onaylayabilir
+        // Diğer İK çalışanları kendi departman arkadaşlarının izinlerini onaylayamaz
+        if ("HR".equals(currentRole)) {
+            Employee requestOwner = leaveRequest.getEmployee();
+
+            // Talep sahibi İK departmanında mı?
+            if (requestOwner.getDepartment() != null &&
+                    "İnsan Kaynakları".equals(requestOwner.getDepartment().getName())) {
+
+                // Onaylayıcı İK departmanının yöneticisi mi?
+                Employee hrManager = requestOwner.getDepartment().getManager();
+
+                if (hrManager == null || !hrManager.getId().equals(approver.getId())) {
+                    throw new BusinessException(
+                            "İK çalışanlarının izin taleplerini sadece İK Yöneticisi onaylayabilir. " +
+                                    "Kendi departman arkadaşlarınızın izinlerini onaylayamazsınız."
+                    );
+                }
+            }
+        }
 
         // 5. Workflow ilerletme
         LeaveType leaveType = leaveRequest.getLeaveType();
@@ -372,6 +461,35 @@ public class LeaveRequestService {
                                         .map(role -> role.getRoleName())
                                         .collect(java.util.stream.Collectors.joining(", ")))
                 );
+            }
+
+            // ÖNEMLİ 1: Kimse kendi iznini reddedemez!
+            if (leaveRequest.getEmployee().getId().equals(approver.getId())) {
+                throw new BusinessException(
+                        "Kendi izin talebinizi reddedemezsiniz! " +
+                                "İzin talebinizi iptal etmek için 'İptal Et' butonunu kullanın."
+                );
+            }
+
+            // ÖNEMLİ 2: İK çalışanının izin talebini sadece İK yöneticisi reddedebilir
+            // Diğer İK çalışanları kendi departman arkadaşlarının izinlerini reddedemez
+            if ("HR".equals(nextApproverRole)) {
+                Employee requestOwner = leaveRequest.getEmployee();
+
+                // Talep sahibi İK departmanında mı?
+                if (requestOwner.getDepartment() != null &&
+                        "İnsan Kaynakları".equals(requestOwner.getDepartment().getName())) {
+
+                    // Reddeden kişi İK departmanının yöneticisi mi?
+                    Employee hrManager = requestOwner.getDepartment().getManager();
+
+                    if (hrManager == null || !hrManager.getId().equals(approver.getId())) {
+                        throw new BusinessException(
+                                "İK çalışanlarının izin taleplerini sadece İK Yöneticisi reddedebilir. " +
+                                        "Kendi departman arkadaşlarınızın izinlerini reddedemezsiniz."
+                        );
+                    }
+                }
             }
         }
 
@@ -775,6 +893,9 @@ public class LeaveRequestService {
                         .build())
                 .collect(Collectors.toList());
 
+        // Yüklenen belgeleri al
+        List<AttachmentResponse> attachments = leaveAttachmentService.listAttachments(leaveRequest.getId());
+
         return ManagerLeaveResponseDTO.builder()
                 .leaveRequestId(leaveRequest.getId())
                 .employeeFullName(employee.getFirstName() + " " + employee.getLastName())
@@ -787,6 +908,7 @@ public class LeaveRequestService {
                 .currentStatus(leaveRequest.getRequestStatus())
                 .workflowNextApproverRole(leaveRequest.getWorkflowNextApproverRole())
                 .approvalHistory(history)
+                .attachments(attachments)  
                 .build();
     }
 

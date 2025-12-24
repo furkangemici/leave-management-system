@@ -26,5 +26,6 @@ public class ManagerLeaveResponseDTO {
     private RequestStatus currentStatus;
     private String workflowNextApproverRole;
     private List<ApprovalHistoryDTO> approvalHistory;
+    private List<AttachmentResponse> attachments; // Yüklenen belgeler
 }
 
